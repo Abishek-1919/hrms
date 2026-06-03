@@ -1,0 +1,19 @@
+{
+  "name": "hrms-enterprise",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Enterprise HRMS monorepo with a Vercel-ready frontend.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace apps/frontend run dev",
+    "build": "npm --workspace apps/frontend run build",
+    "preview": "npm --workspace apps/frontend run preview",
+    "lint": "npm --workspace apps/frontend run lint"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

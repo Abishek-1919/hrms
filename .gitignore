@@ -1,0 +1,9 @@
+node_modules
+dist
+.playwright-mcp/
+.env
+.env.local
+.env.*.local
+.vercel
+coverage
+*.log
