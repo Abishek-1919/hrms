@@ -2,9 +2,14 @@ export interface TimesheetFormEntry {
   id: string;
   date: string;
   project: string;
-  task: string;
+  taskCategory: string;
+  description: string;
+  task?: string;
+  regularHours: number;
+  overtimeHours: number;
   hours: number;
   billable: boolean;
+  attachmentName?: string;
 }
 
 export interface TimesheetDraft {
@@ -12,9 +17,10 @@ export interface TimesheetDraft {
   employeeName: string;
   month: string;
   notes: string;
-  status: "draft" | "pending";
+  status: "draft" | "pending" | "under-review" | "approved" | "rejected" | "resubmitted";
   totalHours: number;
   billableHours: number;
+  overtimeHours?: number;
   entries: TimesheetFormEntry[];
   updatedAt: string;
 }

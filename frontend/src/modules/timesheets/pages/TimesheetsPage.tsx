@@ -7,7 +7,7 @@ import { Button } from "@/components/common/Button";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/tables/DataTable";
-import { timesheets } from "@/services/mockData";
+import { employeeProjectAllocations, projectCatalog, timesheets } from "@/services/mockData";
 
 const columns: ColumnDef<Timesheet>[] = [
   { accessorKey: "month", header: "Month" },
@@ -31,8 +31,8 @@ export function TimesheetsPage() {
     <div className="page-shell">
       <PageHeader
         eyebrow="Timesheets"
-        title="Monthly work logs"
-        description="Create, edit, and submit monthly timesheets for manager approval."
+        title="Timesheet engine"
+        description="Daily records power daily entry, weekly entry, monthly summaries, utilization reporting, and payroll integration."
         action={
           <Button onClick={() => navigate("/timesheets/new")}>
             <Plus className="h-4 w-4" />
@@ -40,6 +40,24 @@ export function TimesheetsPage() {
           </Button>
         }
       />
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader title="Project reference" description="Projects can be typed directly while submitting timesheets." />
+          <CardContent className="text-3xl font-semibold">{projectCatalog.filter((project) => project.active).length}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader title="Project allocations" description="Assigned by HR/Admin or employee request." />
+          <CardContent className="text-3xl font-semibold">{employeeProjectAllocations.filter((allocation) => allocation.active).length}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader title="Reporting views" description="Generated from daily entries." />
+          <CardContent className="flex flex-wrap gap-2">
+            <Badge tone="info">Daily</Badge>
+            <Badge tone="info">Weekly</Badge>
+            <Badge tone="info">Monthly</Badge>
+          </CardContent>
+        </Card>
+      </section>
       <Card>
         <CardHeader
           title="Timesheet register"

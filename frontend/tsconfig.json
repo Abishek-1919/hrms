@@ -18,9 +18,9 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
-      "@hrms/shared-types": ["../../packages/shared-types/src/index.ts"]
+      "@hrms/shared-types": ["../shared/src/index.ts"]
     }
   },
-  "include": ["src", "../../packages/shared-types/src"],
+  "include": ["src", "../shared/src"],
   "references": []
 }

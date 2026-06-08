@@ -4,7 +4,7 @@ import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
-import { leaveRequests, timesheets } from "@/services/mockData";
+import { getHrName, getManagerName, getUserName, leaveRequests, teamAssignmentRequests, timesheets } from "@/services/mockData";
 
 export function ApprovalsPage() {
   const pendingItems = [
@@ -21,6 +21,13 @@ export function ApprovalsPage() {
       owner: item.employeeName,
       meta: `${item.days} day(s), ${item.from} to ${item.to}`,
       type: "Leave"
+    })),
+    ...teamAssignmentRequests.filter((item) => item.status === "Pending").map((item) => ({
+      id: item.id,
+      title: "Team assignment request",
+      owner: getUserName(item.employeeId),
+      meta: `Send to ${item.managerIds.map(getManagerName).join(", ")}; notify ${item.hrIds.map(getHrName).join(", ")}`,
+      type: "Team Assignment"
     }))
   ];
 
@@ -51,11 +58,11 @@ export function ApprovalsPage() {
                   <MessageSquare className="h-4 w-4" />
                   Comment
                 </Button>
-                <Button variant="danger" size="sm" onClick={() => toast.error("Rejected in demo mode")}>
+                <Button variant="danger" size="sm" onClick={() => toast.error(`${item.type} rejected in demo mode`)}>
                   <X className="h-4 w-4" />
                   Reject
                 </Button>
-                <Button size="sm" onClick={() => toast.success("Approved in demo mode")}>
+                <Button size="sm" onClick={() => toast.success(`${item.type} approved in demo mode`)}>
                   <Check className="h-4 w-4" />
                   Approve
                 </Button>

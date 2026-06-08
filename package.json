@@ -4,14 +4,18 @@
   "version": "0.1.0",
   "description": "Enterprise HRMS monorepo with a Vercel-ready frontend.",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "frontend",
+    "backend",
+    "shared"
   ],
   "scripts": {
-    "dev": "npm --workspace apps/frontend run dev",
-    "build": "npm --workspace apps/frontend run build",
-    "preview": "npm --workspace apps/frontend run preview",
-    "lint": "npm --workspace apps/frontend run lint"
+    "dev": "npm --workspace frontend run dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "dev:backend": "npm --workspace backend run dev",
+    "build": "npm --workspace frontend run build",
+    "build:frontend": "npm --workspace frontend run build",
+    "lint": "npm --workspace frontend run lint",
+    "preview": "npm --workspace frontend run preview"
   },
   "engines": {
     "node": ">=20"

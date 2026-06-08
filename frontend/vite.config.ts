@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "@hrms/shared-types": path.resolve(__dirname, "../../packages/shared-types/src")
+      "@hrms/shared-types": path.resolve(__dirname, "../shared/src")
     }
   },
   server: {

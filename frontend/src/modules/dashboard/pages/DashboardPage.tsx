@@ -5,12 +5,45 @@ import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { Badge } from "@/components/common/Badge";
-import { leaveRequests, timesheets, utilizationTrend } from "@/services/mockData";
+import {
+  employeeHrMappings,
+  employeeManagerMappings,
+  getHrName,
+  getManagerName,
+  leaveRequests,
+  teamAssignmentRequests,
+  timesheets,
+  utilizationTrend
+} from "@/services/mockData";
 
 export function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user);
   const pendingTimesheets = timesheets.filter((item) => item.status === "pending").length;
   const pendingLeaves = leaveRequests.filter((item) => item.status === "pending").length;
+  const pendingTeamAssignments = teamAssignmentRequests.filter((item) => item.status === "Pending").length;
+  const myManagers = employeeManagerMappings.filter((mapping) => mapping.employeeId === user?.id && mapping.status === "Approved");
+  const myHrContacts = employeeHrMappings.filter((mapping) => mapping.employeeId === user?.id && mapping.active);
+  const roleWidgets =
+    user?.role === "employee"
+      ? [
+          ["My manager(s)", myManagers.length ? myManagers.map((mapping) => getManagerName(mapping.managerId)).join(", ") : "Pending assignment"],
+          ["My HR contact(s)", myHrContacts.length ? myHrContacts.map((mapping) => getHrName(mapping.hrId)).join(", ") : "Not assigned"],
+          ["Timesheet status", pendingTimesheets > 0 ? `${pendingTimesheets} pending` : "Current"],
+          ["Recent notifications", "Assignment and approval alerts"]
+        ]
+      : user?.role === "manager"
+        ? [
+            ["My team", `${employeeManagerMappings.filter((mapping) => mapping.status === "Approved").length} approved mapping(s)`],
+            ["Pending timesheets", `${pendingTimesheets} waiting`],
+            ["Pending leave requests", `${pendingLeaves} waiting`],
+            ["Team assignment requests", `${pendingTeamAssignments} waiting`]
+          ]
+        : [
+            ["Employee directory", "248 active records"],
+            ["Employee hierarchy", `${employeeManagerMappings.length} manager mapping(s)`],
+            ["Pending actions", `${pendingTimesheets + pendingLeaves + pendingTeamAssignments} open`],
+            ["Approval audit logs", "Timesheet, leave, and team flows"]
+          ];
 
   return (
     <div className="page-shell">
@@ -24,8 +57,20 @@ export function DashboardPage() {
         <StatCard label="Total employees" value="248" delta="+12 this quarter" icon={Users} />
         <StatCard label="Pending timesheets" value={String(pendingTimesheets)} delta="Review before payroll lock" icon={Clock3} tone="warning" />
         <StatCard label="Leave requests" value={String(pendingLeaves)} delta="3 need manager action" icon={CalendarCheck2} tone="info" />
-        <StatCard label="Compliance score" value="97%" delta="Audit ready" icon={CheckCircle2} tone="success" />
+        <StatCard label="Team assignments" value={String(pendingTeamAssignments)} delta="Manager controlled hierarchy" icon={CheckCircle2} tone="success" />
       </section>
+
+      <Card>
+        <CardHeader title={`${user?.role ?? "Employee"} workspace widgets`} description="Role-specific dashboard blocks driven by the approval and hierarchy configuration." />
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {roleWidgets.map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-border p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+              <p className="mt-2 text-sm font-semibold">{value}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
         <Card>
