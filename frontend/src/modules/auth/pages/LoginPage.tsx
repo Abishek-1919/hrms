@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, LockKeyhole, Mail } from "lucide-react";
+import { LockKeyhole, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { Button } from "@/components/common/Button";
 import { TextField } from "@/components/forms/TextField";
 import { setCredentials } from "@/modules/auth/authSlice";
@@ -57,9 +58,7 @@ export function LoginPage() {
       <section className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Building2 className="h-6 w-6" aria-hidden="true" />
-            </div>
+            <BrandLogo className="h-12 w-12 shrink-0" />
             <div>
               <p className="text-lg font-semibold">MethodHub HRMS</p>
               <p className="text-sm text-muted-foreground">Secure employee operations</p>
@@ -105,13 +104,13 @@ export function LoginPage() {
           </div>
         </div>
       </section>
-      <section className="hidden bg-slate-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <section className="hidden border-l border-border bg-card px-10 py-12 text-foreground lg:flex lg:flex-col lg:justify-between">
         <div className="max-w-xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-200">Enterprise HRMS</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Enterprise HRMS</p>
           <h2 className="mt-4 text-4xl font-semibold leading-tight">
             A calm workspace for people operations, approvals, and employee productivity.
           </h2>
-          <p className="mt-5 text-base leading-7 text-slate-300">
+          <p className="mt-5 text-base leading-7 text-muted-foreground">
             Built for role-aware HR workflows with secure routing, responsive dashboards, reusable components, and
             deploy-ready frontend architecture.
           </p>
@@ -122,9 +121,9 @@ export function LoginPage() {
             ["18", "Pending approvals"],
             ["86%", "Utilization"]
           ].map(([value, label]) => (
-            <div key={label} className="rounded-lg border border-white/10 bg-white/8 p-5">
+            <div key={label} className="rounded-xl border border-panel bg-white p-5 shadow-soft dark:bg-muted">
               <p className="text-3xl font-semibold">{value}</p>
-              <p className="mt-2 text-sm text-slate-300">{label}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{label}</p>
             </div>
           ))}
         </div>

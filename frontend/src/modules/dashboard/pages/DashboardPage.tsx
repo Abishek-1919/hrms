@@ -88,8 +88,8 @@ export function DashboardPage() {
                     borderRadius: 8
                   }}
                 />
-                <Bar dataKey="utilization" fill="#0f766e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="leaves" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="utilization" fill="#3F90F6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="leaves" fill="#F97316" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

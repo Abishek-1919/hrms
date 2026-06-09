@@ -24,7 +24,7 @@ import {
 } from "@/services/mockData";
 
 function fieldClassName() {
-  return "mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+  return "form-control mt-2";
 }
 
 export function ProfilePage() {

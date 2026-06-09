@@ -38,7 +38,7 @@ export function TimesheetEntryRow({
             type="date"
             value={entry.date}
             onChange={(event) => updateEntry("date", event.target.value)}
-            className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            className="form-control mt-2"
             aria-label={`Entry ${index + 1} date`}
           />
         </label>
@@ -49,7 +49,7 @@ export function TimesheetEntryRow({
           value={entry.project}
           onChange={(event) => updateEntry("project", event.target.value)}
           placeholder="Type project name"
-          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="form-control mt-2"
           aria-label={`Entry ${index + 1} project`}
         />
       </label>
@@ -58,7 +58,7 @@ export function TimesheetEntryRow({
         <select
           value={entry.taskCategory}
           onChange={(event) => updateEntry("taskCategory", event.target.value)}
-          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="form-control mt-2"
           aria-label={`Entry ${index + 1} task category`}
         >
           <option value="">Select task</option>
@@ -73,7 +73,7 @@ export function TimesheetEntryRow({
           value={entry.description}
           onChange={(event) => updateEntry("description", event.target.value)}
           placeholder="Describe completed work"
-          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="form-control mt-2"
           aria-label={`Entry ${index + 1} description`}
         />
       </label>
@@ -86,7 +86,7 @@ export function TimesheetEntryRow({
           step="0.25"
           value={entry.regularHours}
           onChange={(event) => updateEntry("regularHours", Number(event.target.value))}
-          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="form-control mt-2"
           aria-label={`Entry ${index + 1} regular hours`}
         />
       </label>
@@ -99,11 +99,11 @@ export function TimesheetEntryRow({
           step="0.25"
           value={entry.overtimeHours}
           onChange={(event) => updateEntry("overtimeHours", Number(event.target.value))}
-          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          className="form-control mt-2"
           aria-label={`Entry ${index + 1} overtime hours`}
         />
       </label>
-      <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium lg:mb-0">
+      <label className="flex h-10 items-center gap-2 rounded-lg border border-input bg-muted px-3 text-xs font-medium lg:mb-0">
         <input
           type="checkbox"
           checked={entry.billable}

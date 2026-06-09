@@ -250,7 +250,7 @@ export function NewTimesheetPage() {
                 type="month"
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
-                className="h-11 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                className="form-control pl-9"
               />
             </div>
           </label>
@@ -260,7 +260,7 @@ export function NewTimesheetPage() {
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Add blockers, overtime context, or billing notes"
-              className="mt-2 min-h-24 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="form-control mt-2 min-h-24 resize-y py-2"
             />
           </label>
         </CardContent>
@@ -299,7 +299,7 @@ export function NewTimesheetPage() {
               <div className="grid gap-3 md:grid-cols-4">
                 <label className="text-sm font-medium">
                   Week start
-                  <input type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
+                  <input type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} className="form-control mt-2" />
                 </label>
                 <label className="text-sm font-medium">
                   Project
@@ -307,12 +307,12 @@ export function NewTimesheetPage() {
                     value={weeklyProject}
                     onChange={(event) => setWeeklyProject(event.target.value)}
                     placeholder="Type project name"
-                    className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="form-control mt-2"
                   />
                 </label>
                 <label className="text-sm font-medium">
                   Task category
-                  <select value={weeklyTaskCategory} onChange={(event) => setWeeklyTaskCategory(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <select value={weeklyTaskCategory} onChange={(event) => setWeeklyTaskCategory(event.target.value)} className="form-control mt-2">
                     {taskCategories.map((taskCategory) => (
                       <option key={taskCategory}>{taskCategory}</option>
                     ))}
@@ -320,7 +320,7 @@ export function NewTimesheetPage() {
                 </label>
                 <label className="text-sm font-medium">
                   Description
-                  <input value={weeklyDescription} onChange={(event) => setWeeklyDescription(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
+                  <input value={weeklyDescription} onChange={(event) => setWeeklyDescription(event.target.value)} className="form-control mt-2" />
                 </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-7">
@@ -334,7 +334,7 @@ export function NewTimesheetPage() {
                       step="0.25"
                       value={weeklyHours[index]}
                       onChange={(event) => setWeeklyHours((current) => current.map((hours, hourIndex) => (hourIndex === index ? Number(event.target.value) : hours)))}
-                      className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      className="form-control mt-2"
                     />
                   </label>
                 ))}
@@ -375,7 +375,7 @@ export function NewTimesheetPage() {
       </Card>
 
       {validationErrors.length > 0 ? (
-        <Card className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/25 dark:text-amber-100">
+        <Card className="border-warning bg-warningBg text-amber-950 dark:bg-warning/20 dark:text-amber-100">
           <CardContent>
             <h2 className="font-semibold">Before submitting</h2>
             <ul className="mt-3 space-y-1 text-sm">

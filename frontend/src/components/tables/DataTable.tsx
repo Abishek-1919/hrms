@@ -39,27 +39,27 @@ export function DataTable<TData>({ columns, data, searchPlaceholder = "Search re
           value={globalFilter}
           onChange={(event) => setGlobalFilter(event.target.value)}
           placeholder={searchPlaceholder}
-          className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+          className="h-10 w-full rounded-full border border-[#D5E0F1] bg-gradient-to-b from-white to-[#F9FBFF] pl-9 pr-3 text-xs text-foreground shadow-search transition placeholder:text-muted-foreground focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200/70 dark:from-card dark:to-muted"
         />
       </div>
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border text-sm">
-            <thead className="bg-muted/60">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#F2F2F2] dark:bg-muted">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 text-left font-semibold text-muted-foreground">
+                    <th key={header.id} className="px-4 py-3 text-left font-semibold text-[#374151] dark:text-foreground">
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-border bg-card">
+            <tbody className="bg-card">
               {table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-muted/45">
+                  <tr key={row.id} className="border-b border-[#DDD] last:border-0 hover:bg-[#F5F5F5] dark:border-border dark:hover:bg-muted">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3 text-foreground">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -16,9 +16,9 @@ export function StatCard({
 }) {
   const toneClass = {
     primary: "bg-accent text-accent-foreground",
-    success: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-    warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-    info: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200"
+    success: "bg-successBg text-success dark:bg-success/20 dark:text-green-200",
+    warning: "bg-warningBg text-amber-800 dark:bg-warning/20 dark:text-amber-200",
+    info: "bg-accent text-accent-foreground"
   }[tone];
 
   return (
@@ -28,7 +28,7 @@ export function StatCard({
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="mt-2 text-3xl font-semibold tracking-normal">{value}</p>
         </div>
-        <div className={cn("rounded-md p-2.5", toneClass)}>
+        <div className={cn("rounded-lg p-2.5", toneClass)}>
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </div>

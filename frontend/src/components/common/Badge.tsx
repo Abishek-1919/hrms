@@ -2,10 +2,10 @@ import { cn } from "@/utils/cn";
 
 const toneStyles = {
   default: "bg-muted text-muted-foreground",
-  success: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-  warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  danger: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-  info: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200"
+  success: "bg-successBg text-success dark:bg-success/20 dark:text-green-200",
+  warning: "bg-warningBg text-amber-800 dark:bg-warning/20 dark:text-amber-200",
+  danger: "bg-dangerBg text-danger dark:bg-danger/20 dark:text-red-200",
+  info: "bg-accent text-accent-foreground"
 };
 
 export function Badge({
