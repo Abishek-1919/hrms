@@ -360,3 +360,29 @@ export const utilizationTrend = [
   { month: "May", utilization: 86, leaves: 16 },
   { month: "Jun", utilization: 89, leaves: 11 }
 ];
+
+export const officeLocations = ["Chennai", "Bangalore", "Hyderabad", "Pune", "Mumbai"];
+
+export const timezoneOptions = [
+  { value: "Asia/Kolkata", label: "IST (UTC+05:30) - India" },
+  { value: "America/New_York", label: "EST (UTC-05:00) - New York" },
+  { value: "Europe/London", label: "GMT (UTC+00:00) - London" },
+  { value: "Asia/Singapore", label: "SGT (UTC+08:00) - Singapore" }
+];
+
+export const designations = [
+  "Frontend Engineer",
+  "Backend Engineer",
+  "Fullstack Engineer",
+  "QA Engineer",
+  "QA Lead",
+  "Engineering Manager",
+  "Product Designer",
+  "Product Manager",
+  "HR Generalist",
+  "HRMS Administrator",
+  "Delivery Manager",
+  "Account Manager"
+];
+
+export const departmentNames = ["Engineering", "People Operations", "Finance", "Delivery", "Design", "Quality Assurance"];

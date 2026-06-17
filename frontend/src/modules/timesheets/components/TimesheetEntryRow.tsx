@@ -23,14 +23,24 @@ export function TimesheetEntryRow({
   onDelete,
   canDelete
 }: TimesheetEntryRowProps) {
+  const calculateHours = (startTime = "09:00", endTime = "17:00") => {
+    const [startHour, startMinute] = startTime.split(":").map(Number);
+    const [endHour, endMinute] = endTime.split(":").map(Number);
+    const start = startHour * 60 + startMinute;
+    const end = endHour * 60 + endMinute;
+    return Math.max(0, (end - start) / 60);
+  };
+
   const updateEntry = <TKey extends keyof TimesheetFormEntry>(key: TKey, value: TimesheetFormEntry[TKey]) => {
     const nextEntry = { ...entry, [key]: value };
-    nextEntry.hours = Number(nextEntry.regularHours || 0) + Number(nextEntry.overtimeHours || 0);
+    nextEntry.hours = calculateHours(nextEntry.startTime, nextEntry.endTime);
+    nextEntry.regularHours = nextEntry.hours;
+    nextEntry.overtimeHours = 0;
     onChange(nextEntry);
   };
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[1fr_1.25fr_1.1fr_1.7fr_0.72fr_0.72fr_0.75fr_auto] xl:items-end">
+    <div className="grid gap-3 rounded-lg border border-border bg-card p-4 xl:grid-cols-[1fr_1.2fr_1.1fr_1.5fr_0.72fr_0.72fr_0.72fr_auto] xl:items-end">
       {showDate ? (
         <label className="text-sm font-medium">
           {dateLabel}
@@ -78,39 +88,33 @@ export function TimesheetEntryRow({
         />
       </label>
       <label className="text-sm font-medium">
-        Regular
+        Start time
         <input
-          type="number"
-          min="0"
-          max="24"
-          step="0.25"
-          value={entry.regularHours}
-          onChange={(event) => updateEntry("regularHours", Number(event.target.value))}
+          type="time"
+          value={entry.startTime ?? "09:00"}
+          onChange={(event) => updateEntry("startTime", event.target.value)}
           className="form-control mt-2"
-          aria-label={`Entry ${index + 1} regular hours`}
+          aria-label={`Entry ${index + 1} start time`}
         />
       </label>
       <label className="text-sm font-medium">
-        Overtime
+        End time
         <input
-          type="number"
-          min="0"
-          max="24"
-          step="0.25"
-          value={entry.overtimeHours}
-          onChange={(event) => updateEntry("overtimeHours", Number(event.target.value))}
+          type="time"
+          value={entry.endTime ?? "17:00"}
+          onChange={(event) => updateEntry("endTime", event.target.value)}
           className="form-control mt-2"
-          aria-label={`Entry ${index + 1} overtime hours`}
+          aria-label={`Entry ${index + 1} end time`}
         />
       </label>
-      <label className="flex h-10 items-center gap-2 rounded-lg border border-input bg-muted px-3 text-xs font-medium lg:mb-0">
+      <label className="text-sm font-medium">
+        Hours
         <input
-          type="checkbox"
-          checked={entry.billable}
-          onChange={(event) => updateEntry("billable", event.target.checked)}
-          className="h-4 w-4 rounded border-input accent-primary"
+          readOnly
+          value={`${Number(entry.hours || calculateHours(entry.startTime, entry.endTime)).toFixed(2)}h`}
+          className="form-control mt-2"
+          aria-label={`Entry ${index + 1} calculated hours`}
         />
-        Billable
       </label>
       <Button
         variant="ghost"

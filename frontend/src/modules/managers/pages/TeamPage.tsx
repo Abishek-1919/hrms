@@ -1,34 +1,107 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import type { User } from "@hrms/shared-types";
 import { Badge } from "@/components/common/Badge";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/tables/DataTable";
-import { demoUsers, employeeManagerMappings, getManagerName, getUserName, teamAssignmentRequests } from "@/services/mockData";
+import { useAppSelector } from "@/app/store/hooks";
+import type { Employee, EmployeeProject } from "@hrms/shared-types";
+import {
+  managerOptions,
+  getUserName,
+  getManagerName,
+  getHrName,
+  teamAssignmentRequests
+} from "@/services/mockData";
 
-const columns: ColumnDef<User>[] = [
-  { accessorKey: "name", header: "Name" },
+const getColumns = (employeeProjects: EmployeeProject[]): ColumnDef<Employee>[] => [
+  {
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ row }) => (
+      <span className="font-semibold text-foreground">
+        {row.original.first_name} {row.original.last_name}
+      </span>
+    )
+  },
   { accessorKey: "department", header: "Department" },
   { accessorKey: "designation", header: "Designation" },
-  { accessorKey: "manager", header: "Manager" },
+  {
+    accessorKey: "work_mode",
+    header: "Work Mode",
+    cell: ({ row }) => <span className="capitalize">{row.original.work_mode.replace("_", " ")}</span>
+  },
+  {
+    id: "projects",
+    header: "Projects",
+    cell: ({ row }) => {
+      const assigned = employeeProjects.filter((p) => p.employee_id === row.original.employee_id);
+      return assigned.length > 0
+        ? assigned.map((p) => p.project_name).join(", ")
+        : "No Projects";
+    }
+  },
+  {
+    id: "billing_type",
+    header: "Billing Type",
+    cell: ({ row }) => {
+      const assigned = employeeProjects.filter((p) => p.employee_id === row.original.employee_id);
+      if (assigned.length === 0) return "N/A";
+      const types = Array.from(new Set(assigned.map((p) => p.billing_type)));
+      return (
+        <div className="flex gap-1 flex-wrap">
+          {types.map((type) => (
+            <Badge key={type} tone={type === "billable" ? "success" : "default"} className="capitalize">
+              {type.replace("_", " ")}
+            </Badge>
+          ))}
+        </div>
+      );
+    }
+  },
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => <Badge tone={row.original.status === "active" ? "success" : "default"}>{row.original.status}</Badge>
+    cell: ({ row }) => (
+      <Badge tone={row.original.status === "active" ? "success" : "default"} className="capitalize">
+        {row.original.status}
+      </Badge>
+    )
   }
 ];
 
 export function TeamPage() {
-  const approvedEmployeeIds = new Set(employeeManagerMappings.filter((mapping) => mapping.status === "Approved").map((mapping) => mapping.employeeId));
-  const approvedTeamMembers = demoUsers.filter((user) => approvedEmployeeIds.has(user.id));
-  const pendingRequests = teamAssignmentRequests.filter((request) => request.status === "Pending");
+  const { employees, employeeProjects, managerMappings } = useAppSelector((state) => state.employees);
+  const { user } = useAppSelector((state) => state.auth);
+
+  // Find manager mapping ID for current user
+  const managerRecord = managerOptions.find((m) => m.name === user?.name);
+  const currentManagerId = managerRecord ? managerRecord.id : "";
+
+  // Approved team members: employees whose manager_id matches currentManagerId OR employeeId is approved in managerMappings
+  const approvedEmployeeIds = new Set(
+    managerMappings
+      .filter((mapping) => mapping.status === "Approved" && (!currentManagerId || mapping.managerId === currentManagerId))
+      .map((mapping) => mapping.employeeId)
+  );
+
+  const approvedTeamMembers = employees.filter(
+    (emp) => emp.manager_id === currentManagerId || approvedEmployeeIds.has(emp.employee_id)
+  );
+
+  const pendingRequests = teamAssignmentRequests.filter(
+    (request) =>
+      request.status === "Pending" &&
+      (!currentManagerId || request.managerIds.includes(currentManagerId))
+  );
+
+  const columns = getColumns(employeeProjects);
 
   return (
     <div className="page-shell">
       <PageHeader
         eyebrow="Manager workspace"
         title="Team hierarchy overview"
-        description="Employees only appear in a manager's team after a team assignment request is accepted."
+        description="Employees appear in a manager's team after the mapping is approved."
       />
       <Card>
         <CardHeader title="My team" description="Approved employee-manager mappings." />

@@ -1,5 +1,5 @@
-import { ArrowLeft, CalendarDays, Plus, Save, Send } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowLeft, CalendarDays, ClipboardList, Copy, Edit3, Plus, Save, Send, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAppSelector } from "@/app/store/hooks";
@@ -7,403 +7,686 @@ import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
-import { TimesheetEntryRow } from "@/modules/timesheets/components/TimesheetEntryRow";
-import { TimesheetSummary } from "@/modules/timesheets/components/TimesheetSummary";
-import type { TimesheetDraft, TimesheetFormEntry } from "@/modules/timesheets/types";
-import { saveTimesheetDraft } from "@/modules/timesheets/utils/timesheetStorage";
-import { holidayCalendar, leaveCalendar, taskCategories } from "@/services/mockData";
+import type { TimesheetCalendarEntry, TimesheetEntryMode } from "@/modules/timesheets/types";
+import {
+  deleteTimesheetEntry,
+  getTimesheetEntries,
+  saveTimesheetEntries,
+  submitEntriesForApproval,
+  updateTimesheetEntry
+} from "@/modules/timesheets/utils/timesheetStorage";
+import { holidayCalendar, projectCatalog, taskCategories } from "@/services/mockData";
+import { cn } from "@/utils/cn";
 
-type TimesheetMode = "daily" | "weekly" | "monthly";
+type WorkspaceTab = TimesheetEntryMode | "review";
 
-const createEntry = (): TimesheetFormEntry => ({
-  id: crypto.randomUUID(),
-  date: new Date().toISOString().slice(0, 10),
-  project: "",
-  taskCategory: "",
-  description: "",
-  regularHours: 8,
-  overtimeHours: 0,
-  hours: 8,
-  billable: true
-});
+interface EntryFormState {
+  date: string;
+  project: string;
+  task: string;
+  startTime: string;
+  endTime: string;
+  notes: string;
+}
 
-const currentMonth = new Date().toISOString().slice(0, 7);
-const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const autoSaveKey = "hrms-timesheet-entry-form";
+const weekdayOptions = [
+  { label: "Monday", offset: 0 },
+  { label: "Tuesday", offset: 1 },
+  { label: "Wednesday", offset: 2 },
+  { label: "Thursday", offset: 3 },
+  { label: "Friday", offset: 4 }
+];
 
-function dateFromWeekStart(weekStart: string, dayOffset: number) {
-  const date = new Date(`${weekStart}T00:00:00`);
-  date.setDate(date.getDate() + dayOffset);
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function startOfWeek(dateValue: string) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
   return date.toISOString().slice(0, 10);
+}
+
+function addDays(dateValue: string, offset: number) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function isWeekend(dateValue: string) {
+  const day = new Date(`${dateValue}T00:00:00`).getDay();
+  return day === 0 || day === 6;
+}
+
+function isHoliday(dateValue: string) {
+  return holidayCalendar.some((holiday) => holiday.date === dateValue);
+}
+
+function monthDates(month: string) {
+  const [year, monthIndex] = month.split("-").map(Number);
+  const daysInMonth = new Date(year, monthIndex, 0).getDate();
+  return Array.from({ length: daysInMonth }, (_, index) => `${month}-${String(index + 1).padStart(2, "0")}`);
+}
+
+function calculateHours(startTime: string, endTime: string) {
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  const start = startHour * 60 + startMinute;
+  const end = endHour * 60 + endMinute;
+  return Math.max(0, (end - start) / 60);
+}
+
+function formatHours(hours: number) {
+  return `${hours.toFixed(hours % 1 === 0 ? 0 : 2)}h`;
+}
+
+function defaultForm(): EntryFormState {
+  return {
+    date: today(),
+    project: projectCatalog.find((project) => project.active)?.name ?? "HRMS Portal",
+    task: taskCategories[0],
+    startTime: "09:00",
+    endTime: "17:00",
+    notes: ""
+  };
+}
+
+function toCalendarEntry(form: EntryFormState, userId: string, employeeName: string, mode: TimesheetEntryMode, sourceLabel?: string): TimesheetCalendarEntry {
+  const hours = calculateHours(form.startTime, form.endTime);
+
+  return {
+    id: crypto.randomUUID(),
+    employeeId: userId,
+    employeeName,
+    date: form.date,
+    project: form.project,
+    task: form.task,
+    taskCategory: form.task,
+    description: form.notes || form.task,
+    startTime: form.startTime,
+    endTime: form.endTime,
+    hours,
+    regularHours: hours,
+    overtimeHours: 0,
+    billable: true,
+    status: "draft",
+    mode,
+    sourceLabel,
+    notes: form.notes
+  };
+}
+
+function statusBadge(status: TimesheetCalendarEntry["status"]) {
+  const tone = status === "approved" ? "info" : status === "pending" ? "warning" : status === "rejected" ? "warning" : "success";
+  const label = status === "draft" ? "Editable" : status ?? "draft";
+  return <Badge tone={tone}>{label}</Badge>;
 }
 
 export function NewTimesheetPage() {
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
-  const [mode, setMode] = useState<TimesheetMode>("daily");
-  const [month, setMonth] = useState(currentMonth);
-  const [notes, setNotes] = useState("");
-  const [entries, setEntries] = useState<TimesheetFormEntry[]>([createEntry()]);
-  const [weekStart, setWeekStart] = useState(new Date().toISOString().slice(0, 10));
-  const [weeklyProject, setWeeklyProject] = useState("");
-  const [weeklyTaskCategory, setWeeklyTaskCategory] = useState(taskCategories[0]);
-  const [weeklyDescription, setWeeklyDescription] = useState("");
-  const [weeklyHours, setWeeklyHours] = useState<number[]>([8, 8, 8, 8, 8, 0, 0]);
-
-  const totalHours = useMemo(() => entries.reduce((sum, entry) => sum + Number(entry.hours || 0), 0), [entries]);
-  const billableHours = useMemo(
-    () => entries.reduce((sum, entry) => sum + (entry.billable ? Number(entry.hours || 0) : 0), 0),
-    [entries]
-  );
-  const overtimeHours = useMemo(() => entries.reduce((sum, entry) => sum + Number(entry.overtimeHours || 0), 0), [entries]);
-  const projectSummary = useMemo(() => {
-    return entries.reduce<Record<string, { total: number; billable: number; overtime: number }>>((summary, entry) => {
-      const projectName = entry.project || "Unassigned";
-      summary[projectName] ??= { total: 0, billable: 0, overtime: 0 };
-      summary[projectName].total += Number(entry.hours || 0);
-      summary[projectName].billable += entry.billable ? Number(entry.hours || 0) : 0;
-      summary[projectName].overtime += Number(entry.overtimeHours || 0);
-      return summary;
-    }, {});
-  }, [entries]);
-
-  const validationErrors = useMemo(() => {
-    const errors: string[] = [];
-    const totalsByDate = new Map<string, number>();
-    const duplicateKeys = new Set<string>();
-    const seenKeys = new Set<string>();
-    if (!month) {
-      errors.push("Select a timesheet month.");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("daily");
+  const [entries, setEntries] = useState<TimesheetCalendarEntry[]>(() => getTimesheetEntries());
+  const [dailyForms, setDailyForms] = useState<EntryFormState[]>(() => {
+    const saved = localStorage.getItem(autoSaveKey);
+    if (!saved) return [defaultForm()];
+    try {
+      const parsed = JSON.parse(saved) as EntryFormState[];
+      return parsed.length > 0 ? parsed : [defaultForm()];
+    } catch {
+      return [defaultForm()];
     }
-    entries.forEach((entry, index) => {
-      const row = `Entry ${index + 1}`;
-      const entryHours = Number(entry.hours || 0);
-      if (!entry.date) {
-        errors.push(`${row}: date is required.`);
-      }
-      if (!entry.project.trim()) {
-        errors.push(`${row}: project is required.`);
-      }
-      if (!entry.taskCategory.trim()) {
-        errors.push(`${row}: task category is required.`);
-      }
-      if (!entry.description.trim()) {
-        errors.push(`${row}: work description is required.`);
-      }
-      if (!Number.isFinite(entryHours) || entryHours <= 0 || (mode !== "monthly" && entryHours > 24)) {
-        errors.push(mode === "monthly" ? `${row}: hours must be greater than zero.` : `${row}: hours must be between 0.25 and 24.`);
-      }
-      if (mode !== "monthly") {
-        totalsByDate.set(entry.date, (totalsByDate.get(entry.date) ?? 0) + entryHours);
-      }
-      const duplicateKey = `${mode === "monthly" ? month : entry.date}|${entry.project}|${entry.taskCategory}|${entry.description.trim().toLowerCase()}`;
-      if (seenKeys.has(duplicateKey)) {
-        duplicateKeys.add(`${row}: duplicate entry detected.`);
-      }
-      seenKeys.add(duplicateKey);
+  });
+  const [weeklyForm, setWeeklyForm] = useState<EntryFormState>({ ...defaultForm(), date: startOfWeek(today()) });
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [month, setMonth] = useState(currentMonth());
+  const [applyEntireMonth, setApplyEntireMonth] = useState(true);
+  const [excludeWeekends, setExcludeWeekends] = useState(true);
+  const [excludeHolidays, setExcludeHolidays] = useState(true);
+  const [monthlyForm, setMonthlyForm] = useState<EntryFormState>({ ...defaultForm(), date: `${currentMonth()}-01` });
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
-      if (mode !== "monthly") {
-        const leaveConflict = leaveCalendar.find((leave) => leave.employeeId === user?.id && leave.date === entry.date);
-        if (leaveConflict && entryHours > leaveConflict.maxHours) {
-          errors.push(`${row}: ${leaveConflict.type} allows a maximum of ${leaveConflict.maxHours} hour(s).`);
-        }
-        const holidayConflict = holidayCalendar.find((holiday) => holiday.date === entry.date);
-        if (holidayConflict) {
-          errors.push(`${row}: ${holidayConflict.name} conflict requires approval note.`);
-        }
-      }
-    });
-    totalsByDate.forEach((hours, date) => {
-      if (hours > 24) {
-        errors.push(`${date}: total hours cannot exceed 24.`);
-      }
-    });
-    errors.push(...duplicateKeys);
-    return errors;
-  }, [entries, mode, month, user?.id]);
-
-  const updateEntry = (entryId: string, nextEntry: TimesheetFormEntry) => {
-    setEntries((current) => current.map((entry) => (entry.id === entryId ? nextEntry : entry)));
-  };
-
-  const addEntry = () => {
-    setEntries((current) => [...current, createEntry()]);
-  };
-
-  const deleteEntry = (entryId: string) => {
-    setEntries((current) => current.filter((entry) => entry.id !== entryId));
-  };
-
-  const buildDraft = (status: TimesheetDraft["status"]): TimesheetDraft => ({
-    id: crypto.randomUUID(),
-    employeeName: user?.name ?? "Current employee",
-    month,
-    notes,
-    status,
-    totalHours,
-    billableHours,
-    overtimeHours,
-    entries,
-    updatedAt: new Date().toISOString()
+  const employeeEntries = useMemo(() => entries.filter((entry) => entry.employeeId === user?.id), [entries, user?.id]);
+  const editableReviewEntries = employeeEntries.filter((entry) => entry.status === "draft" || entry.status === "rejected");
+  const totalReviewHours = employeeEntries.reduce((sum, entry) => sum + entry.hours, 0);
+  const dailyHours = dailyForms.reduce((sum, form) => sum + calculateHours(form.startTime, form.endTime), 0);
+  const weeklyGeneratedCount = selectedWeekdays.length;
+  const monthlyGeneratedDates = monthDates(month).filter((date) => {
+    if (!applyEntireMonth) return date === monthlyForm.date;
+    if (excludeWeekends && isWeekend(date)) return false;
+    if (excludeHolidays && isHoliday(date)) return false;
+    return true;
   });
 
-  const generateWeeklyEntries = () => {
-    if (!weeklyProject || !weeklyTaskCategory || !weeklyDescription.trim()) {
-      toast.error("Select project, task category, and description before generating weekly rows.");
+  const weeklySummary = useMemo(() => {
+    return employeeEntries.reduce<Record<string, number>>((summary, entry) => {
+      const week = startOfWeek(entry.date);
+      summary[week] = (summary[week] ?? 0) + entry.hours;
+      return summary;
+    }, {});
+  }, [employeeEntries]);
+
+  const monthlySummary = useMemo(() => {
+    return employeeEntries.reduce<Record<string, number>>((summary, entry) => {
+      const entryMonth = entry.date.slice(0, 7);
+      summary[entryMonth] = (summary[entryMonth] ?? 0) + entry.hours;
+      return summary;
+    }, {});
+  }, [employeeEntries]);
+
+  const validationMessages = useMemo(() => {
+    const messages: string[] = [];
+    dailyForms.forEach((form, index) => {
+      if (!form.project) messages.push(`Daily row ${index + 1}: project is required.`);
+      if (!form.task) messages.push(`Daily row ${index + 1}: task is required.`);
+      if (calculateHours(form.startTime, form.endTime) <= 0) messages.push(`Daily row ${index + 1}: end time must be after start time.`);
+    });
+    employeeEntries.forEach((entry) => {
+      if (calculateHours(entry.startTime ?? "09:00", entry.endTime ?? "17:00") <= 0) {
+        messages.push(`${entry.date}: invalid time range.`);
+      }
+    });
+    employeeEntries.forEach((entry, index) => {
+      employeeEntries.slice(index + 1).forEach((nextEntry) => {
+        if (entry.date !== nextEntry.date) return;
+        const entryStart = entry.startTime ?? "09:00";
+        const entryEnd = entry.endTime ?? "17:00";
+        const nextStart = nextEntry.startTime ?? "09:00";
+        const nextEnd = nextEntry.endTime ?? "17:00";
+        if (entryStart < nextEnd && nextStart < entryEnd) {
+          messages.push(`${entry.date}: ${entry.project} overlaps with ${nextEntry.project}.`);
+        }
+      });
+    });
+    return messages;
+  }, [dailyForms, employeeEntries]);
+
+  useEffect(() => {
+    localStorage.setItem(autoSaveKey, JSON.stringify(dailyForms));
+  }, [dailyForms]);
+
+  function refreshEntries() {
+    setEntries(getTimesheetEntries());
+  }
+
+  function updateDailyForm(index: number, nextForm: Partial<EntryFormState>) {
+    setDailyForms((current) => current.map((form, formIndex) => (formIndex === index ? { ...form, ...nextForm } : form)));
+  }
+
+  function submitDailyEntries() {
+    if (!user) return;
+    const invalid = dailyForms.some((form) => calculateHours(form.startTime, form.endTime) <= 0 || !form.project || !form.task);
+    if (invalid) {
+      toast.error("Fix daily entry validation before submitting.");
+      return;
+    }
+    saveTimesheetEntries(dailyForms.map((form) => toCalendarEntry(form, user.id, user.name, "daily")));
+    refreshEntries();
+    toast.success("Daily entries saved as editable records.");
+    setActiveTab("review");
+  }
+
+  function generateWeeklyEntries(submitAfterGenerate = false) {
+    if (!user) return;
+    const hours = calculateHours(weeklyForm.startTime, weeklyForm.endTime);
+    if (hours <= 0 || selectedWeekdays.length === 0) {
+      toast.error("Select at least one weekday and a valid time range.");
       return;
     }
 
-    const generatedEntries = weeklyHours
-      .map((hours, index) => ({ hours, date: dateFromWeekStart(weekStart, index) }))
-      .filter((item) => item.hours > 0)
-      .map<TimesheetFormEntry>((item) => ({
-        id: crypto.randomUUID(),
-        date: item.date,
-        project: weeklyProject,
-        taskCategory: weeklyTaskCategory,
-        description: weeklyDescription,
-        regularHours: item.hours,
-        overtimeHours: 0,
-        hours: item.hours,
-        billable: true
-      }));
+    const generated = selectedWeekdays.map((offset) =>
+      toCalendarEntry({ ...weeklyForm, date: addDays(weeklyForm.date, offset) }, user.id, user.name, "weekly", "Weekly generation")
+    );
+    saveTimesheetEntries(generated);
+    if (submitAfterGenerate) {
+      submitEntriesForApproval(generated.map((entry) => entry.id));
+    }
+    refreshEntries();
+    toast.success(submitAfterGenerate ? "Weekly entries generated and submitted." : "Weekly entries generated.");
+    setActiveTab("review");
+  }
 
-    setEntries(generatedEntries);
-    toast.success("Weekly grid converted into daily records.");
-  };
-
-  const handleSaveDraft = () => {
-    const draft = buildDraft("draft");
-    saveTimesheetDraft(draft);
-    toast.success("Timesheet draft saved locally.");
-  };
-
-  const handleSubmit = () => {
-    if (validationErrors.length > 0) {
-      toast.error("Fix the highlighted timesheet issues before submitting.");
+  function copyPreviousWeek() {
+    const previousWeekStart = addDays(weeklyForm.date, -7);
+    const previousEntries = employeeEntries.filter((entry) => entry.date >= previousWeekStart && entry.date <= addDays(previousWeekStart, 4));
+    const firstEntry = previousEntries[0];
+    if (!firstEntry) {
+      toast.error("No previous week entries found. Keeping the current template.");
       return;
     }
+    setWeeklyForm({
+      date: weeklyForm.date,
+      project: firstEntry.project,
+      task: firstEntry.taskCategory,
+      startTime: firstEntry.startTime ?? "09:00",
+      endTime: firstEntry.endTime ?? "17:00",
+      notes: firstEntry.notes ?? ""
+    });
+    toast.success("Previous week template copied.");
+  }
 
-    saveTimesheetDraft(buildDraft("pending"));
-    toast.success("Timesheet submitted for manager approval.");
+  function generateMonthlyEntries(submitAfterGenerate = false) {
+    if (!user) return;
+    const hours = calculateHours(monthlyForm.startTime, monthlyForm.endTime);
+    if (hours <= 0) {
+      toast.error("End time must be after start time.");
+      return;
+    }
+    const generated = monthlyGeneratedDates.map((date) =>
+      toCalendarEntry({ ...monthlyForm, date }, user.id, user.name, "monthly", "Monthly generation")
+    );
+    saveTimesheetEntries(generated);
+    if (submitAfterGenerate) {
+      submitEntriesForApproval(generated.map((entry) => entry.id));
+    }
+    refreshEntries();
+    toast.success(submitAfterGenerate ? "Monthly entries generated and submitted." : "Monthly entries generated.");
+    setActiveTab("review");
+  }
+
+  function deleteEntry(entry: TimesheetCalendarEntry) {
+    if (entry.status === "pending" || entry.status === "approved") {
+      toast.error("Submitted or approved entries are locked.");
+      return;
+    }
+    deleteTimesheetEntry(entry.id);
+    refreshEntries();
+    toast.success("Entry deleted.");
+  }
+
+  function startEdit(entry: TimesheetCalendarEntry) {
+    if (entry.status === "pending" || entry.status === "approved") {
+      toast.error("Submitted or approved entries are locked.");
+      return;
+    }
+    setEditingEntryId(entry.id);
+  }
+
+  function saveEditedEntry(entry: TimesheetCalendarEntry, patch: Partial<TimesheetCalendarEntry>) {
+    const startTime = patch.startTime ?? entry.startTime ?? "09:00";
+    const endTime = patch.endTime ?? entry.endTime ?? "17:00";
+    const hours = calculateHours(startTime, endTime);
+    updateTimesheetEntry({ ...entry, ...patch, startTime, endTime, hours, regularHours: hours });
+    setEditingEntryId(null);
+    refreshEntries();
+    toast.success("Entry updated.");
+  }
+
+  function submitForApproval() {
+    if (editableReviewEntries.length === 0) {
+      toast.error("No editable entries available to submit.");
+      return;
+    }
+    submitEntriesForApproval(editableReviewEntries.map((entry) => entry.id));
+    refreshEntries();
+    toast.success("Timesheet submitted for approval.");
     navigate("/timesheets");
-  };
+  }
+
+  function renderEntryFields(form: EntryFormState, onChange: (nextForm: Partial<EntryFormState>) => void, showDate = true) {
+    const hours = calculateHours(form.startTime, form.endTime);
+    return (
+      <div className="grid gap-3 lg:grid-cols-[0.9fr_1.2fr_1.1fr_0.7fr_0.7fr_0.7fr_1.5fr]">
+        {showDate ? (
+          <label className="text-sm font-medium">
+            Date
+            <input type="date" value={form.date} onChange={(event) => onChange({ date: event.target.value })} className="form-control mt-2" />
+          </label>
+        ) : null}
+        <label className="text-sm font-medium">
+          Project
+          <select value={form.project} onChange={(event) => onChange({ project: event.target.value })} className="form-control mt-2">
+            {projectCatalog.filter((project) => project.active).map((project) => (
+              <option key={project.id}>{project.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-medium">
+          Task
+          <select value={form.task} onChange={(event) => onChange({ task: event.target.value })} className="form-control mt-2">
+            {taskCategories.map((task) => (
+              <option key={task}>{task}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-medium">
+          Start
+          <input type="time" value={form.startTime} onChange={(event) => onChange({ startTime: event.target.value })} className="form-control mt-2" />
+        </label>
+        <label className="text-sm font-medium">
+          End
+          <input type="time" value={form.endTime} onChange={(event) => onChange({ endTime: event.target.value })} className="form-control mt-2" />
+        </label>
+        <label className="text-sm font-medium">
+          Hours
+          <input readOnly value={formatHours(hours)} className={cn("form-control mt-2", hours <= 0 ? "border-danger text-danger" : "")} />
+        </label>
+        <label className="text-sm font-medium">
+          Notes
+          <input value={form.notes} onChange={(event) => onChange({ notes: event.target.value })} className="form-control mt-2" placeholder="Optional" />
+        </label>
+      </div>
+    );
+  }
 
   return (
     <div className="page-shell">
       <PageHeader
-        eyebrow="New timesheet"
-        title="Create timesheet"
-        description="Choose daily, weekly, or monthly manual entry based on how repetitive the work is."
+        eyebrow="Timesheets"
+        title="Entry and review workspace"
+        description="Create daily, weekly, or monthly entries with automatic hour calculation before approval submission."
         action={
-          <Link
-            to="/timesheets"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium transition hover:bg-muted"
-          >
+          <Link to="/timesheets" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium transition hover:bg-muted">
             <ArrowLeft className="h-4 w-4" />
-            Back to register
+            Back to calendar
           </Link>
         }
       />
 
-      <TimesheetSummary
-        totalHours={totalHours}
-        billableHours={billableHours}
-        entryCount={entries.length}
-        validationCount={validationErrors.length}
-      />
+      <section className="grid gap-3 md:grid-cols-4">
+        {[
+          ["daily", "Daily Entry", "Different work per day"],
+          ["weekly", "Weekly Entry", "Same pattern across weekdays"],
+          ["monthly", "Monthly Entry", "Same pattern across the month"],
+          ["review", "Review Timesheet", "Validate and submit"]
+        ].map(([tab, label, description]) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab as WorkspaceTab)}
+            className={cn(
+              "rounded-lg border p-4 text-left transition hover:bg-muted",
+              activeTab === tab ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card"
+            )}
+          >
+            <span className="block text-sm font-semibold">{label}</span>
+            <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+          </button>
+        ))}
+      </section>
 
-      <Card>
-        <CardHeader title="Choose timesheet mode" description="Daily, weekly, and monthly are separate manual entry choices." />
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          {[
-            ["daily", "Daily Entry", "Create one or more daily records."],
-            ["weekly", "Weekly Entry", "Fill repeated work for a week."],
-            ["monthly", "Monthly Entry", "Fill repeated work for a month."]
-          ].map(([modeValue, label, description]) => (
-            <button
-              key={modeValue}
-              type="button"
-              onClick={() => setMode(modeValue as TimesheetMode)}
-              className={`rounded-lg border p-4 text-left transition ${
-                mode === modeValue ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card hover:bg-muted"
-              }`}
-            >
-              <span className="block text-sm font-semibold">{label}</span>
-              <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
-            </button>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader
-          title="Timesheet details"
-          description="Header information used for payroll and manager review."
-          action={<Badge tone={validationErrors.length === 0 ? "success" : "warning"}>{validationErrors.length === 0 ? "ready" : "needs review"}</Badge>}
-        />
-        <CardContent className="grid gap-4 md:grid-cols-[0.6fr_1.4fr]">
-          <label className="text-sm font-medium">
-            Timesheet month
-            <div className="relative mt-2">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="month"
-                value={month}
-                onChange={(event) => setMonth(event.target.value)}
-                className="form-control pl-9"
-              />
-            </div>
-          </label>
-          <label className="text-sm font-medium">
-            Notes for approver
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Add blockers, overtime context, or billing notes"
-              className="form-control mt-2 min-h-24 resize-y py-2"
-            />
-          </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader
-          title={mode === "weekly" ? "Weekly entry grid" : mode === "monthly" ? "Monthly work entries" : "Daily work entries"}
-          description={mode === "weekly" ? "Use this for the same project or task repeated across one week." : mode === "monthly" ? "Use this for repetitive work across the selected month." : "Add one row per day, project, or task grouping."}
-          action={
-            mode === "daily" || mode === "monthly" ? (
-            <Button variant="secondary" size="sm" onClick={addEntry}>
-              <Plus className="h-4 w-4" />
-              Add entry
-            </Button>
-            ) : null
-          }
-        />
-        <CardContent className="space-y-3">
-          {mode === "daily" ? (
-            entries.map((entry, index) => (
-              <TimesheetEntryRow
-                key={entry.id}
-                entry={entry}
-                index={index}
-                taskCategories={taskCategories}
-                canDelete={entries.length > 1}
-                onChange={(nextEntry) => updateEntry(entry.id, nextEntry)}
-                onDelete={() => deleteEntry(entry.id)}
-              />
-            ))
-          ) : null}
-
-          {mode === "weekly" ? (
-            <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-4">
-                <label className="text-sm font-medium">
-                  Week start
-                  <input type="date" value={weekStart} onChange={(event) => setWeekStart(event.target.value)} className="form-control mt-2" />
-                </label>
-                <label className="text-sm font-medium">
-                  Project
-                  <input
-                    value={weeklyProject}
-                    onChange={(event) => setWeeklyProject(event.target.value)}
-                    placeholder="Type project name"
-                    className="form-control mt-2"
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Task category
-                  <select value={weeklyTaskCategory} onChange={(event) => setWeeklyTaskCategory(event.target.value)} className="form-control mt-2">
-                    {taskCategories.map((taskCategory) => (
-                      <option key={taskCategory}>{taskCategory}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm font-medium">
-                  Description
-                  <input value={weeklyDescription} onChange={(event) => setWeeklyDescription(event.target.value)} className="form-control mt-2" />
-                </label>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-7">
-                {weekDays.map((day, index) => (
-                  <label key={day} className="text-sm font-medium">
-                    {day}
-                    <input
-                      type="number"
-                      min="0"
-                      max="24"
-                      step="0.25"
-                      value={weeklyHours[index]}
-                      onChange={(event) => setWeeklyHours((current) => current.map((hours, hourIndex) => (hourIndex === index ? Number(event.target.value) : hours)))}
-                      className="form-control mt-2"
-                    />
-                  </label>
-                ))}
-              </div>
-              <Button onClick={generateWeeklyEntries}>Generate daily records</Button>
-            </div>
-          ) : null}
-
-          {mode === "monthly" ? (
-            <div className="space-y-3">
-              {entries.map((entry, index) => (
-                <TimesheetEntryRow
-                  key={entry.id}
-                  entry={entry}
-                  index={index}
-                  taskCategories={taskCategories}
-                  showDate={false}
-                  canDelete={entries.length > 1}
-                  onChange={(nextEntry) => updateEntry(entry.id, nextEntry)}
-                  onDelete={() => deleteEntry(entry.id)}
-                />
-              ))}
-              <div className="rounded-lg border border-border p-4">
-                <p className="text-sm font-medium">Monthly totals preview</p>
-                <div className="mt-3 grid gap-2 md:grid-cols-3">
-                  {Object.entries(projectSummary).map(([projectName, summary]) => (
-                    <div key={projectName} className="rounded-md bg-muted p-3 text-sm">
-                      <p className="font-medium">{projectName}</p>
-                      <p className="mt-1 text-muted-foreground">Total: {summary.total.toFixed(2)}</p>
-                      <p className="text-muted-foreground">Overtime: {summary.overtime.toFixed(2)}</p>
-                    </div>
-                  ))}
+      {activeTab === "daily" ? (
+        <Card>
+          <CardHeader
+            title="Daily entry"
+            description="Use this when work changes throughout the day. Hours are calculated from start and end time."
+            action={
+              <Button variant="secondary" size="sm" onClick={() => setDailyForms((current) => [...current, defaultForm()])}>
+                <Plus className="h-4 w-4" />
+                Add entry
+              </Button>
+            }
+          />
+          <CardContent className="space-y-4">
+            {dailyForms.map((form, index) => (
+              <div key={`${form.date}-${index}`} className="rounded-lg border border-border p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">Entry {index + 1}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={dailyForms.length === 1}
+                    onClick={() => setDailyForms((current) => current.filter((_, formIndex) => formIndex !== index))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove
+                  </Button>
                 </div>
+                {renderEntryFields(form, (nextForm) => updateDailyForm(index, nextForm))}
               </div>
+            ))}
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">{formatHours(dailyHours)} calculated across {dailyForms.length} daily entr{dailyForms.length === 1 ? "y" : "ies"}.</p>
+              <Button onClick={submitDailyEntries}>
+                <Send className="h-4 w-4" />
+                Submit Daily Entry
+              </Button>
             </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {validationErrors.length > 0 ? (
-        <Card className="border-warning bg-warningBg text-amber-950 dark:bg-warning/20 dark:text-amber-100">
-          <CardContent>
-            <h2 className="font-semibold">Before submitting</h2>
-            <ul className="mt-3 space-y-1 text-sm">
-              {validationErrors.map((error) => (
-                <li key={error}>{error}</li>
-              ))}
-            </ul>
           </CardContent>
         </Card>
       ) : null}
 
-      <div className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-background/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            {totalHours.toFixed(2)} total hours across {entries.length} entr{entries.length === 1 ? "y" : "ies"}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={handleSaveDraft}>
-              <Save className="h-4 w-4" />
-              Save draft
-            </Button>
-            <Button onClick={handleSubmit}>
-              <Send className="h-4 w-4" />
-              Submit for approval
-            </Button>
+      {activeTab === "weekly" ? (
+        <Card>
+          <CardHeader
+            title="Weekly entry"
+            description="Generate daily records for selected weekdays using one project, task, and time range."
+            action={
+              <Button variant="secondary" size="sm" onClick={copyPreviousWeek}>
+                <Copy className="h-4 w-4" />
+                Copy Previous Week
+              </Button>
+            }
+          />
+          <CardContent className="space-y-5">
+            <label className="block max-w-xs text-sm font-medium">
+              Week start date
+              <input type="date" value={weeklyForm.date} onChange={(event) => setWeeklyForm((current) => ({ ...current, date: startOfWeek(event.target.value) }))} className="form-control mt-2" />
+            </label>
+            {renderEntryFields(weeklyForm, (nextForm) => setWeeklyForm((current) => ({ ...current, ...nextForm })), false)}
+            <div>
+              <p className="text-sm font-medium">Apply to</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-5">
+                {weekdayOptions.map((day) => (
+                  <label key={day.label} className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={selectedWeekdays.includes(day.offset)}
+                      onChange={() =>
+                        setSelectedWeekdays((current) =>
+                          current.includes(day.offset) ? current.filter((offset) => offset !== day.offset) : [...current, day.offset].sort()
+                        )
+                      }
+                    />
+                    {day.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">{weeklyGeneratedCount} daily records will be generated, {formatHours(calculateHours(weeklyForm.startTime, weeklyForm.endTime) * weeklyGeneratedCount)} total.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => generateWeeklyEntries(false)}>
+                  <Save className="h-4 w-4" />
+                  Generate Entries
+                </Button>
+                <Button onClick={() => generateWeeklyEntries(true)}>
+                  <Send className="h-4 w-4" />
+                  Submit Weekly Entry
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {activeTab === "monthly" ? (
+        <Card>
+          <CardHeader title="Monthly entry" description="Generate repeated daily records for working days in the selected month." />
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-[240px_1fr]">
+              <label className="text-sm font-medium">
+                Month
+                <div className="relative mt-2">
+                  <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="form-control pl-9" />
+                </div>
+              </label>
+              {renderEntryFields(monthlyForm, (nextForm) => setMonthlyForm((current) => ({ ...current, ...nextForm })), false)}
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                ["Apply to entire month", applyEntireMonth, setApplyEntireMonth],
+                ["Exclude weekends", excludeWeekends, setExcludeWeekends],
+                ["Exclude holidays", excludeHolidays, setExcludeHolidays]
+              ].map(([label, checked, setter]) => (
+                <label key={label as string} className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
+                  <input type="checkbox" className="h-4 w-4 accent-primary" checked={checked as boolean} onChange={(event) => (setter as (value: boolean) => void)(event.target.checked)} />
+                  {label as string}
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">{monthlyGeneratedDates.length} records will be generated, {formatHours(calculateHours(monthlyForm.startTime, monthlyForm.endTime) * monthlyGeneratedDates.length)} total.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => generateMonthlyEntries(false)}>
+                  <Save className="h-4 w-4" />
+                  Generate Monthly Entries
+                </Button>
+                <Button onClick={() => generateMonthlyEntries(true)}>
+                  <Send className="h-4 w-4" />
+                  Submit Monthly Entry
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {activeTab === "review" ? (
+        <div className="space-y-6">
+          <section className="grid gap-4 md:grid-cols-4">
+            <div className="stat-card">
+              <p className="text-sm text-muted-foreground">Total Hours</p>
+              <p className="mt-2 text-3xl font-semibold">{formatHours(totalReviewHours)}</p>
+            </div>
+            <div className="stat-card">
+              <p className="text-sm text-muted-foreground">Editable</p>
+              <p className="mt-2 text-3xl font-semibold">{editableReviewEntries.length}</p>
+            </div>
+            <div className="stat-card">
+              <p className="text-sm text-muted-foreground">Pending</p>
+              <p className="mt-2 text-3xl font-semibold">{employeeEntries.filter((entry) => entry.status === "pending").length}</p>
+            </div>
+            <div className="stat-card">
+              <p className="text-sm text-muted-foreground">Approved</p>
+              <p className="mt-2 text-3xl font-semibold">{employeeEntries.filter((entry) => entry.status === "approved").length}</p>
+            </div>
+          </section>
+
+          <Card>
+            <CardHeader
+              title="Daily records"
+              description="Review all logged entries before approval submission."
+              action={
+                <Button onClick={submitForApproval}>
+                  <Send className="h-4 w-4" />
+                  Submit For Approval
+                </Button>
+              }
+            />
+            <CardContent className="overflow-x-auto">
+              <table className="w-full min-w-[940px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="py-3 font-medium">Date</th>
+                    <th className="py-3 font-medium">Project</th>
+                    <th className="py-3 font-medium">Task</th>
+                    <th className="py-3 font-medium">Start</th>
+                    <th className="py-3 font-medium">End</th>
+                    <th className="py-3 font-medium">Hours</th>
+                    <th className="py-3 font-medium">Status</th>
+                    <th className="py-3 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employeeEntries.map((entry) => {
+                    const isEditing = editingEntryId === entry.id;
+                    return (
+                      <tr key={entry.id} className="border-b border-border last:border-0">
+                        <td className="py-3">
+                          {isEditing ? (
+                            <input type="date" defaultValue={entry.date} className="form-control h-9" onBlur={(event) => saveEditedEntry(entry, { date: event.target.value })} />
+                          ) : (
+                            entry.date
+                          )}
+                        </td>
+                        <td className="py-3">{entry.project}</td>
+                        <td className="py-3">{entry.taskCategory}</td>
+                        <td className="py-3">
+                          {isEditing ? (
+                            <input type="time" defaultValue={entry.startTime} className="form-control h-9" onBlur={(event) => saveEditedEntry(entry, { startTime: event.target.value })} />
+                          ) : (
+                            entry.startTime
+                          )}
+                        </td>
+                        <td className="py-3">
+                          {isEditing ? (
+                            <input type="time" defaultValue={entry.endTime} className="form-control h-9" onBlur={(event) => saveEditedEntry(entry, { endTime: event.target.value })} />
+                          ) : (
+                            entry.endTime
+                          )}
+                        </td>
+                        <td className="py-3">{formatHours(entry.hours)}</td>
+                        <td className="py-3">{statusBadge(entry.status)}</td>
+                        <td className="py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="secondary" size="sm" disabled={entry.status === "pending" || entry.status === "approved"} onClick={() => startEdit(entry)}>
+                              <Edit3 className="h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button variant="ghost" size="sm" disabled={entry.status === "pending" || entry.status === "approved"} onClick={() => deleteEntry(entry)}>
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card>
+              <CardHeader title="Weekly summary" description="Week-wise totals." />
+              <CardContent className="space-y-3">
+                {Object.entries(weeklySummary).map(([week, hours]) => (
+                  <div key={week} className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm">
+                    <span>Week of {week}</span>
+                    <span className="font-semibold">{formatHours(hours)}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader title="Monthly summary" description="Month-wise totals." />
+              <CardContent className="space-y-3">
+                {Object.entries(monthlySummary).map(([summaryMonth, hours]) => (
+                  <div key={summaryMonth} className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm">
+                    <span>{summaryMonth}</span>
+                    <span className="font-semibold">{formatHours(hours)}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader title="Validation checks" description="Missing data, overlaps, and invalid time ranges." action={<ClipboardList className="h-4 w-4 text-muted-foreground" />} />
+              <CardContent>
+                {validationMessages.length > 0 ? (
+                  <ul className="space-y-2 text-sm text-danger">
+                    {validationMessages.map((message) => (
+                      <li key={message}>{message}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No blocking validation issues found.</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

@@ -45,6 +45,7 @@ export function ProfilePage() {
   const currentRequest = teamAssignmentRequests.find((request) => request.employeeId === user?.id);
   const approvedManagerMappings = employeeManagerMappings.filter((mapping) => mapping.employeeId === user?.id && mapping.status === "Approved");
   const activeHrMappings = employeeHrMappings.filter((mapping) => mapping.employeeId === user?.id && mapping.active);
+  const showWorkClassification = user?.role !== "employee";
 
   function updateEmployeeCategory(value: EmployeeCategory) {
     const nextRule = getWorkProfileRule(value, workType);
@@ -110,7 +111,8 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <section className="grid gap-6 xl:grid-cols-[0.62fr_0.38fr]">
+      {showWorkClassification ? (
+        <section className="grid gap-6 xl:grid-cols-[0.62fr_0.38fr]">
         <Card>
           <CardHeader
             title="Employee work classification"
@@ -240,7 +242,8 @@ export function ProfilePage() {
             </Button>
           </CardContent>
         </Card>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

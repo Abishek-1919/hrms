@@ -44,9 +44,15 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       localStorage.removeItem(storageKey);
+    },
+    clearMustChangePassword: (state) => {
+      if (state.user) {
+        state.user.must_change_password = false;
+        persistState(state);
+      }
     }
   }
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { setCredentials, logout, clearMustChangePassword } = authSlice.actions;
 export default authSlice.reducer;

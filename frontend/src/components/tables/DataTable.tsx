@@ -42,8 +42,8 @@ export function DataTable<TData>({ columns, data, searchPlaceholder = "Search re
           className="h-10 w-full rounded-full border border-[#D5E0F1] bg-gradient-to-b from-white to-[#F9FBFF] pl-9 pr-3 text-xs text-foreground shadow-search transition placeholder:text-muted-foreground focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200/70 dark:from-card dark:to-muted"
         />
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="overflow-x-auto">
+      <div className="overflow-visible rounded-xl border border-border bg-card">
+        <div className="overflow-x-auto overflow-y-visible">
           <table className="min-w-full text-sm">
             <thead className="bg-[#F2F2F2] dark:bg-muted">
               {table.getHeaderGroups().map((headerGroup) => (

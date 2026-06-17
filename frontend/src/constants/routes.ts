@@ -8,6 +8,7 @@ import {
   Settings,
   ShieldCheck,
   Users,
+  UserPlus,
   UserRound
 } from "lucide-react";
 import type { Role } from "@hrms/shared-types";
@@ -26,6 +27,7 @@ export const navigationItems: NavigationItem[] = [
   { label: "Team", path: "/team", icon: Users, roles: ["manager", "admin"] },
   { label: "Approvals", path: "/approvals", icon: ClipboardCheck, roles: ["manager", "admin"] },
   { label: "Users", path: "/admin/users", icon: ShieldCheck, roles: ["admin"] },
+  { label: "Employees", path: "/admin/employees", icon: UserPlus, roles: ["admin"] },
   { label: "Departments", path: "/admin/departments", icon: BriefcaseBusiness, roles: ["admin"] },
   { label: "Permissions", path: "/admin/settings", icon: Settings, roles: ["admin"] },
   { label: "Profile", path: "/profile", icon: UserRound, roles: ["employee", "manager", "admin"] }
