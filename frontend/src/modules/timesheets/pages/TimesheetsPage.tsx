@@ -97,8 +97,10 @@ function dateFromMonthDay(month: string, day: number) {
 
 function addMonths(month: string, offset: number) {
   const [year, monthIndex] = month.split("-").map(Number);
-  const date = new Date(year, monthIndex - 1 + offset, 1);
-  return date.toISOString().slice(0, 7);
+  const totalMonths = monthIndex - 1 + offset;
+  const newYear = year + Math.floor(totalMonths / 12);
+  const newMonth = ((totalMonths % 12) + 12) % 12;
+  return `${newYear}-${String(newMonth + 1).padStart(2, "0")}`;
 }
 
 function isWeekend(date: string) {
