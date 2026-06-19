@@ -10,6 +10,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const { theme, toggleTheme } = useTheme();
+  const todayLabel = new Intl.DateTimeFormat("en", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
 
   const handleLogout = () => {
     dispatch(logout());
@@ -24,7 +25,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         </Button>
         <div>
           <p className="text-sm font-semibold">Welcome, {user?.name.split(" ")[0]}</p>
-          <p className="text-xs text-muted-foreground">Today is 21 May 2026</p>
+          <p className="text-xs text-muted-foreground">Today is {todayLabel}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

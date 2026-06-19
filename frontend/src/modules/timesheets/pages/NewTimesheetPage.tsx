@@ -1,6 +1,6 @@
 import { ArrowLeft, CalendarDays, ClipboardList, Copy, Edit3, Plus, Save, Send, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAppSelector } from "@/app/store/hooks";
 import { Badge } from "@/components/common/Badge";
@@ -15,7 +15,7 @@ import {
   submitEntriesForApproval,
   updateTimesheetEntry
 } from "@/modules/timesheets/utils/timesheetStorage";
-import { holidayCalendar, projectCatalog, taskCategories } from "@/services/mockData";
+import { holidayCalendar, projectCatalog } from "@/services/mockData";
 import { cn } from "@/utils/cn";
 
 type WorkspaceTab = TimesheetEntryMode | "review";
@@ -30,6 +30,7 @@ interface EntryFormState {
 }
 
 const autoSaveKey = "hrms-timesheet-entry-form";
+const projectOptions = ["Internal", "No Project", ...projectCatalog.filter((project) => project.active).map((project) => project.name)];
 const weekdayOptions = [
   { label: "Monday", offset: 0 },
   { label: "Tuesday", offset: 1 },
@@ -90,8 +91,8 @@ function formatHours(hours: number) {
 function defaultForm(): EntryFormState {
   return {
     date: today(),
-    project: projectCatalog.find((project) => project.active)?.name ?? "HRMS Portal",
-    task: taskCategories[0],
+    project: projectOptions[0],
+    task: "",
     startTime: "09:00",
     endTime: "17:00",
     notes: ""
@@ -131,8 +132,11 @@ function statusBadge(status: TimesheetCalendarEntry["status"]) {
 
 export function NewTimesheetPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const user = useAppSelector((state) => state.auth.user);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("daily");
+  const reviewOnly = searchParams.get("tab") === "review";
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(() => (reviewOnly ? "review" : "daily"));
+  const visibleTab = reviewOnly ? "review" : activeTab;
   const [entries, setEntries] = useState<TimesheetCalendarEntry[]>(() => getTimesheetEntries());
   const [dailyForms, setDailyForms] = useState<EntryFormState[]>(() => {
     const saved = localStorage.getItem(autoSaveKey);
@@ -236,8 +240,8 @@ export function NewTimesheetPage() {
   function generateWeeklyEntries(submitAfterGenerate = false) {
     if (!user) return;
     const hours = calculateHours(weeklyForm.startTime, weeklyForm.endTime);
-    if (hours <= 0 || selectedWeekdays.length === 0) {
-      toast.error("Select at least one weekday and a valid time range.");
+    if (hours <= 0 || selectedWeekdays.length === 0 || !weeklyForm.project || !weeklyForm.task) {
+      toast.error("Select weekdays, enter project and task, and use a valid time range.");
       return;
     }
 
@@ -275,8 +279,8 @@ export function NewTimesheetPage() {
   function generateMonthlyEntries(submitAfterGenerate = false) {
     if (!user) return;
     const hours = calculateHours(monthlyForm.startTime, monthlyForm.endTime);
-    if (hours <= 0) {
-      toast.error("End time must be after start time.");
+    if (hours <= 0 || !monthlyForm.project || !monthlyForm.task) {
+      toast.error("Enter project and task, and make sure end time is after start time.");
       return;
     }
     const generated = monthlyGeneratedDates.map((date) =>
@@ -343,18 +347,14 @@ export function NewTimesheetPage() {
         <label className="text-sm font-medium">
           Project
           <select value={form.project} onChange={(event) => onChange({ project: event.target.value })} className="form-control mt-2">
-            {projectCatalog.filter((project) => project.active).map((project) => (
-              <option key={project.id}>{project.name}</option>
+            {projectOptions.map((project) => (
+              <option key={project}>{project}</option>
             ))}
           </select>
         </label>
         <label className="text-sm font-medium">
           Task
-          <select value={form.task} onChange={(event) => onChange({ task: event.target.value })} className="form-control mt-2">
-            {taskCategories.map((task) => (
-              <option key={task}>{task}</option>
-            ))}
-          </select>
+          <input value={form.task} onChange={(event) => onChange({ task: event.target.value })} className="form-control mt-2" placeholder="Type task details" />
         </label>
         <label className="text-sm font-medium">
           Start
@@ -390,29 +390,31 @@ export function NewTimesheetPage() {
         }
       />
 
-      <section className="grid gap-3 md:grid-cols-4">
-        {[
-          ["daily", "Daily Entry", "Different work per day"],
-          ["weekly", "Weekly Entry", "Same pattern across weekdays"],
-          ["monthly", "Monthly Entry", "Same pattern across the month"],
-          ["review", "Review Timesheet", "Validate and submit"]
-        ].map(([tab, label, description]) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab as WorkspaceTab)}
-            className={cn(
-              "rounded-lg border p-4 text-left transition hover:bg-muted",
-              activeTab === tab ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card"
-            )}
-          >
-            <span className="block text-sm font-semibold">{label}</span>
-            <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
-          </button>
-        ))}
-      </section>
+      {!reviewOnly ? (
+        <section className="grid gap-3 md:grid-cols-4">
+          {[
+            ["daily", "Daily Entry", "Different work per day"],
+            ["weekly", "Weekly Entry", "Same pattern across weekdays"],
+            ["monthly", "Monthly Entry", "Same pattern across the month"],
+            ["review", "Review Timesheet", "Validate and submit"]
+          ].map(([tab, label, description]) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab as WorkspaceTab)}
+              className={cn(
+                "rounded-lg border p-4 text-left transition hover:bg-muted",
+                visibleTab === tab ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card"
+              )}
+            >
+              <span className="block text-sm font-semibold">{label}</span>
+              <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+            </button>
+          ))}
+        </section>
+      ) : null}
 
-      {activeTab === "daily" ? (
+      {visibleTab === "daily" ? (
         <Card>
           <CardHeader
             title="Daily entry"
@@ -453,7 +455,7 @@ export function NewTimesheetPage() {
         </Card>
       ) : null}
 
-      {activeTab === "weekly" ? (
+      {visibleTab === "weekly" ? (
         <Card>
           <CardHeader
             title="Weekly entry"
@@ -508,7 +510,7 @@ export function NewTimesheetPage() {
         </Card>
       ) : null}
 
-      {activeTab === "monthly" ? (
+      {visibleTab === "monthly" ? (
         <Card>
           <CardHeader title="Monthly entry" description="Generate repeated daily records for working days in the selected month." />
           <CardContent className="space-y-5">
@@ -551,7 +553,7 @@ export function NewTimesheetPage() {
         </Card>
       ) : null}
 
-      {activeTab === "review" ? (
+      {visibleTab === "review" ? (
         <div className="space-y-6">
           <section className="grid gap-4 md:grid-cols-4">
             <div className="stat-card">

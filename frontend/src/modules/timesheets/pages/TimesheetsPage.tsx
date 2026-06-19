@@ -248,7 +248,7 @@ export function TimesheetsPage() {
         description="Log, review, submit, and track timesheets from a visual monthly calendar."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => navigate("/timesheets/new")}>
+            <Button variant="secondary" onClick={() => navigate("/timesheets/new?tab=review")}>
               <FileCheck2 className="h-4 w-4" />
               Review
             </Button>
