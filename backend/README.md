@@ -2,6 +2,34 @@
 
 Node.js REST API server. Deploy on **Render**.
 
+The backend now uses Supabase PostgreSQL through `DATABASE_URL` for authentication, employees, workflow records, and stakeholder headcount data. Do not commit the real database password; keep it in `backend/.env`, Render, or your local shell.
+
+## Database Setup
+
+Run these files in the Supabase SQL editor, in order:
+
+1. `backend/db/schema.sql`
+2. `backend/db/seed.sql`
+
+`backend/db/reset.sql` is available for local/dev resets only.
+
+Seeded demo users are database-backed and use bcrypt hashes:
+
+| Email | Password | Role |
+|---|---|---|
+| `employee@methodhub.com` | `Employee@methodhub` | employee |
+| `manager@methodhub.com` | `Manager@methodhub` | manager |
+| `hr@methodhub.com` | `HR@methodhub` | hr |
+| `stakeholder@methodhub.com` | `Stakeholder@methodhub` | stakeholder |
+| `admin@methodhub.com` | `Admin@methodhub` | admin |
+
+## Authentication
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/login` | Database-backed login. Returns the existing frontend shape: `{ user, accessToken, refreshToken }`. |
+| POST | `/auth/change-password` | Saves a new bcrypt hash and sets `must_change_password=false`. Requires `Authorization: Bearer <accessToken>`. |
+
 ## Tech Stack
 
 - **Runtime**: Node.js >= 20 (ESM)
@@ -29,7 +57,7 @@ Copy `.env.example` → `.env` and fill in your values:
 | `PORT` | Server port (Render sets this automatically) |
 | `DATABASE_URL` | Supabase PostgreSQL URI |
 | `CORS_ORIGIN` | Allowed frontend URL (Vercel URL in production) |
-| `STAKEHOLDER_HEADCOUNT_FILE` | Path to headcount Excel file |
+| `STAKEHOLDER_HEADCOUNT_FILE` | Deprecated. Stakeholder headcount now reads from the database. |
 
 ## Deploy on Render
 

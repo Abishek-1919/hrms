@@ -9,7 +9,7 @@ import { BrandLogo } from "@/components/common/BrandLogo";
 import { Button } from "@/components/common/Button";
 import { TextField } from "@/components/forms/TextField";
 import { clearMustChangePassword } from "../authSlice";
-import { changePasswordForUser } from "@/modules/employees/employeeSlice";
+import { useChangePasswordMutation } from "@/services/authApi";
 
 const passwordSchema = z
   .object({
@@ -26,7 +26,8 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 export function ForcePasswordChangePage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { user } = useAppSelector((state) => state.auth);
+  const { user, accessToken } = useAppSelector((state) => state.auth);
+  const [changePassword] = useChangePasswordMutation();
 
   const {
     register,
@@ -47,9 +48,8 @@ export function ForcePasswordChangePage() {
 
   const onSubmit = async (values: PasswordFormValues) => {
     try {
-      // Update credentials in employees store
-      dispatch(changePasswordForUser({ employeeId: user.id, newPass: values.password }));
-      // Clear flag in auth store
+      if (!accessToken) throw new Error("Missing access token.");
+      await changePassword({ accessToken, newPassword: values.password }).unwrap();
       dispatch(clearMustChangePassword());
 
       toast.success("Password updated successfully. Access granted.");

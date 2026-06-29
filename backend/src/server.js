@@ -1,6 +1,7 @@
-import http from "node:http";
-import XLSX from "xlsx";
+import "./dbServer.js";
 
+/*
+Legacy in-memory implementation retained below for reference during the DB transition.
 const port = Number(process.env.PORT ?? 4000);
 // Set STAKEHOLDER_HEADCOUNT_FILE env var to the path of your headcount Excel file.
 // In development, copy the file to the backend/ folder and set the path accordingly.
@@ -699,3 +700,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
 });
+*/
