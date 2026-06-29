@@ -5,17 +5,19 @@ import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
+import { useAppSelector } from "@/app/store/hooks";
 import { defaultHeadcountData } from "@/modules/stakeholders/data/defaultHeadcountData";
 import { useStakeholderHeadcount } from "@/modules/stakeholders/hooks/useStakeholderHeadcount";
 import {
-  clearStoredStakeholderRows,
   countBy,
   downloadStakeholderTemplate,
-  readStakeholderWorkbook,
-  saveStakeholderRows
+  readStakeholderWorkbook
 } from "@/modules/stakeholders/utils/headcount";
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+
 export function StakeholderDataPage() {
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const { records, source, reload } = useStakeholderHeadcount();
@@ -24,6 +26,19 @@ export function StakeholderDataPage() {
   const [error, setError] = useState("");
 
   const countryCounts = useMemo(() => countBy(records, "country"), [records]);
+
+  const replaceSupabaseRows = async (rows: typeof records) => {
+    const response = await fetch(`${apiBaseUrl}/stakeholder/employees/bulk`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        authorization: `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ records: rows })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Unable to save stakeholder rows to Supabase.");
+  };
 
   const handleUpload = async (file?: File) => {
     if (!file) return;
@@ -35,9 +50,9 @@ export function StakeholderDataPage() {
       if (!rows.length) {
         throw new Error("Summary sheet did not contain active employee rows.");
       }
-      saveStakeholderRows(rows);
-      reload();
-      setMessage(`Imported ${rows.length} active employees from ${file.name}. Dashboard and directory now use this data.`);
+      await replaceSupabaseRows(rows);
+      await reload();
+      setMessage(`Imported ${rows.length} employees from ${file.name}. Dashboard and directory now use Supabase data.`);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Unable to import workbook.");
     } finally {
@@ -46,11 +61,15 @@ export function StakeholderDataPage() {
     }
   };
 
-  const resetToDefault = () => {
-    clearStoredStakeholderRows();
-    reload();
-    setError("");
-    setMessage(`Reset to the provided workbook default with ${defaultHeadcountData.length} active employees.`);
+  const resetToDefault = async () => {
+    try {
+      await replaceSupabaseRows(defaultHeadcountData);
+      await reload();
+      setError("");
+      setMessage(`Reset Supabase stakeholder_headcount to the provided workbook default with ${defaultHeadcountData.length} employees.`);
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : "Unable to reset Supabase data.");
+    }
   };
 
   return (

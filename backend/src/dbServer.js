@@ -46,12 +46,13 @@ const requiredEmployeeFields = [
   "emergencyContactName",
   "emergencyContactPhone"
 ];
+const allowedRoles = ["employee", "manager", "hr", "stakeholder", "admin"];
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
     "content-type": "application/json",
     "access-control-allow-origin": corsOrigin,
-    "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
     "access-control-allow-headers": "content-type,authorization,x-user-role"
   });
   res.end(JSON.stringify(body));
@@ -108,6 +109,16 @@ function requireRole(req, res, roles) {
   return true;
 }
 
+function matchesPath(pathname, routePath) {
+  return pathname === routePath || pathname === `/api${routePath}` || pathname === `/api/v1${routePath}`;
+}
+
+function stripRoutePrefix(pathname) {
+  if (pathname.startsWith("/api/v1")) return pathname.slice("/api/v1".length);
+  if (pathname.startsWith("/api")) return pathname.slice("/api".length);
+  return pathname;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -145,6 +156,349 @@ function toUser(row) {
     status: row.status === "active" ? "active" : "inactive",
     must_change_password: row.must_change_password
   };
+}
+
+function accountRowToUser(row) {
+  return {
+    id: row.employee_id,
+    name: `${row.first_name} ${row.last_name}`.trim(),
+    email: row.email,
+    role: row.account_role ?? row.role,
+    department: row.department,
+    designation: row.designation,
+    manager: row.manager_id ?? undefined,
+    status: row.is_active && row.status === "active" ? "active" : "inactive",
+    must_change_password: row.must_change_password
+  };
+}
+
+function splitName(payload) {
+  const firstName = cleanValue(payload.firstName, "");
+  const lastName = cleanValue(payload.lastName, "");
+  if (firstName || lastName) return { firstName, lastName };
+
+  const parts = cleanValue(payload.name, "").split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts.shift() ?? "",
+    lastName: parts.join(" ")
+  };
+}
+
+function makeUsername(email) {
+  return String(email).trim().toLowerCase().split("@")[0].replace(/[^a-z0-9._-]/g, "") || `user-${Date.now()}`;
+}
+
+function makeEmployeeCode(employeeId) {
+  return employeeId.startsWith("EMP-") ? employeeId : employeeId.replace(/^usr-/, "EMP-").replace(/^stake-/, "STK-");
+}
+
+function normalizeRole(role) {
+  const normalized = String(role ?? "").toLowerCase();
+  if (!allowedRoles.includes(normalized)) {
+    throw new Error(`Role must be one of: ${allowedRoles.join(", ")}.`);
+  }
+  return normalized;
+}
+
+async function getAdminUsers() {
+  const result = await dbQuery(
+    `select
+       ua.user_id,
+       ua.employee_id,
+       ua.email,
+       ua.role as account_role,
+       ua.must_change_password,
+       ua.is_active,
+       ua.last_login,
+       e.first_name,
+       e.last_name,
+       e.department,
+       e.designation,
+       e.manager_id,
+       e.status,
+       e.role
+     from user_accounts ua
+     join employees e on e.employee_id = ua.employee_id
+     order by e.first_name, e.last_name`
+  );
+  return result.rows.map(accountRowToUser);
+}
+
+async function upsertAdminUser(payload, existingEmployeeId = "") {
+  const email = cleanValue(payload.email, "").toLowerCase();
+  const { firstName, lastName } = splitName(payload);
+  const role = normalizeRole(payload.role ?? "employee");
+  const status = payload.status === "inactive" ? "inactive" : "active";
+  const isActive = status === "active";
+  const department = cleanValue(payload.department, unknownValue);
+  const designation = cleanValue(payload.designation, unknownValue);
+  const phone = cleanValue(payload.phone, "");
+  const password = cleanValue(payload.password, "");
+
+  if (!firstName || !lastName || !email || !department || !designation) {
+    throw new Error("firstName, lastName, email, department, and designation are required.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("email must be a valid email address.");
+  }
+  if (!existingEmployeeId && !password) {
+    throw new Error("Temporary password is required.");
+  }
+
+  const client = await ensureDb().connect();
+  try {
+    await client.query("begin");
+
+    const existing = existingEmployeeId
+      ? await client.query(
+          `select e.employee_id
+           from employees e
+           left join user_accounts ua on ua.employee_id = e.employee_id
+           where e.employee_id = $1 or ua.user_id = $1`,
+          [existingEmployeeId]
+        )
+      : await client.query(
+          `select e.employee_id
+           from employees e
+           left join user_accounts ua on ua.employee_id = e.employee_id
+           where lower(e.work_email) = lower($1) or lower(ua.email) = lower($1)
+           limit 1`,
+          [email]
+        );
+
+    const count = await client.query("select count(*)::int as count from employees");
+    const employeeId = existing.rows[0]?.employee_id ?? `EMP-${String(count.rows[0].count + 1).padStart(3, "0")}`;
+    const employeeCode = payload.employeeCode ?? makeEmployeeCode(employeeId);
+    const profile = {
+      source: "admin-users",
+      phone,
+      email,
+      firstName,
+      lastName,
+      role,
+      status
+    };
+
+    const employeeResult = await client.query(
+      `insert into employees (
+        employee_id, employee_code, first_name, last_name, work_email,
+        department, designation, role, status, country, state, location,
+        joining_date, profile
+      ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,coalesce($13::date, current_date),$14)
+      on conflict (employee_id) do update set
+        employee_code = excluded.employee_code,
+        first_name = excluded.first_name,
+        last_name = excluded.last_name,
+        work_email = excluded.work_email,
+        department = excluded.department,
+        designation = excluded.designation,
+        role = excluded.role,
+        status = excluded.status,
+        country = excluded.country,
+        state = excluded.state,
+        location = excluded.location,
+        profile = employees.profile || excluded.profile,
+        updated_at = now()
+      returning *`,
+      [
+        employeeId,
+        employeeCode,
+        firstName,
+        lastName,
+        email,
+        department,
+        designation,
+        role,
+        status,
+        payload.country ?? null,
+        payload.state ?? null,
+        payload.location ?? null,
+        payload.joiningDate ?? null,
+        profile
+      ]
+    );
+
+    const username = payload.username ?? makeUsername(email);
+    const userId = payload.userId ?? `UA-${employeeId}`;
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    const existingAccount = await client.query("select user_id from user_accounts where employee_id = $1", [employeeId]);
+    if (!existingAccount.rowCount && !passwordHash) {
+      throw new Error("Temporary password is required to create a portal account.");
+    }
+
+    const accountResult = existingAccount.rowCount
+      ? await client.query(
+          `update user_accounts
+           set
+             email = $2,
+             username = $3,
+             role = $4,
+             is_active = $5,
+             password_hash = coalesce($6, password_hash),
+             must_change_password = case when $6 is null then must_change_password else true end,
+             updated_at = now()
+           where employee_id = $1
+           returning *`,
+          [employeeId, email, username, role, isActive, passwordHash]
+        )
+      : await client.query(
+          `insert into user_accounts (
+            user_id, employee_id, email, username, password_hash, role,
+            must_change_password, is_active
+          ) values ($1,$2,$3,$4,$5,$6,true,$7)
+          on conflict (email) do update set
+            employee_id = excluded.employee_id,
+            username = excluded.username,
+            password_hash = excluded.password_hash,
+            role = excluded.role,
+            must_change_password = true,
+            is_active = excluded.is_active,
+            updated_at = now()
+          returning *`,
+          [userId, employeeId, email, username, passwordHash, role, isActive]
+        );
+
+    if (!accountResult.rowCount) {
+      throw new Error("User account not found.");
+    }
+
+    await client.query("commit");
+    return accountRowToUser({
+      ...employeeResult.rows[0],
+      email: accountResult.rows[0].email,
+      account_role: accountResult.rows[0].role,
+      must_change_password: accountResult.rows[0].must_change_password,
+      is_active: accountResult.rows[0].is_active
+    });
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function setAdminUserStatus(id, status) {
+  const normalizedStatus = status === "inactive" ? "inactive" : "active";
+  const isActive = normalizedStatus === "active";
+  const result = await dbQuery(
+    `with target as (
+       select e.employee_id
+       from employees e
+       left join user_accounts ua on ua.employee_id = e.employee_id
+       where e.employee_id = $1 or ua.user_id = $1
+       limit 1
+     ),
+     updated_employee as (
+       update employees
+       set status = $2, updated_at = now()
+       where employee_id = (select employee_id from target)
+       returning *
+     ),
+     updated_account as (
+       update user_accounts
+       set is_active = $3, updated_at = now()
+       where employee_id = (select employee_id from target)
+       returning *
+     )
+     select
+       ue.*,
+       ua.email,
+       ua.role as account_role,
+       ua.must_change_password,
+       ua.is_active
+     from updated_employee ue
+     join updated_account ua on ua.employee_id = ue.employee_id`,
+    [id, normalizedStatus, isActive]
+  );
+  if (!result.rowCount) throw new Error("User not found.");
+  return accountRowToUser(result.rows[0]);
+}
+
+async function setAdminUserRole(id, role) {
+  const normalizedRole = normalizeRole(role);
+  const result = await dbQuery(
+    `with target as (
+       select e.employee_id
+       from employees e
+       left join user_accounts ua on ua.employee_id = e.employee_id
+       where e.employee_id = $1 or ua.user_id = $1
+       limit 1
+     ),
+     updated_employee as (
+       update employees
+       set role = $2::user_role, updated_at = now()
+       where employee_id = (select employee_id from target)
+       returning *
+     ),
+     updated_account as (
+       update user_accounts
+       set role = $2::user_role, updated_at = now()
+       where employee_id = (select employee_id from target)
+       returning *
+     )
+     select
+       ue.*,
+       ua.email,
+       ua.role as account_role,
+       ua.must_change_password,
+       ua.is_active
+     from updated_employee ue
+     join updated_account ua on ua.employee_id = ue.employee_id`,
+    [id, normalizedRole]
+  );
+  if (!result.rowCount) throw new Error("User not found.");
+  return accountRowToUser(result.rows[0]);
+}
+
+async function resetAdminUserPassword(id, temporaryPassword) {
+  const password = cleanValue(temporaryPassword, "");
+  if (password.length < 8) {
+    throw new Error("Temporary password must be at least 8 characters.");
+  }
+  const passwordHash = await bcrypt.hash(password, 10);
+  const result = await dbQuery(
+    `with target as (
+       select e.employee_id
+       from employees e
+       left join user_accounts ua on ua.employee_id = e.employee_id
+       where e.employee_id = $1 or ua.user_id = $1
+       limit 1
+     ),
+     updated_account as (
+       update user_accounts
+       set password_hash = $2, must_change_password = true, updated_at = now()
+       where employee_id = (select employee_id from target)
+       returning *
+     )
+     select
+       e.*,
+       ua.email,
+       ua.role as account_role,
+       ua.must_change_password,
+       ua.is_active
+     from updated_account ua
+     join employees e on e.employee_id = ua.employee_id`,
+    [id, passwordHash]
+  );
+  if (!result.rowCount) throw new Error("User not found.");
+  return accountRowToUser(result.rows[0]);
+}
+
+async function changeOwnPassword(employeeId, currentPassword, newPassword) {
+  if (String(newPassword ?? "").length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+  const accountResult = await dbQuery("select password_hash from user_accounts where employee_id = $1 and is_active = true", [employeeId]);
+  if (!accountResult.rowCount) throw new Error("User account not found.");
+  if (!(await bcrypt.compare(String(currentPassword ?? ""), accountResult.rows[0].password_hash))) {
+    throw new Error("Current password is incorrect.");
+  }
+  const passwordHash = await bcrypt.hash(String(newPassword), 10);
+  await dbQuery(
+    "update user_accounts set password_hash = $2, must_change_password = false, updated_at = now() where employee_id = $1",
+    [employeeId, passwordHash]
+  );
 }
 
 function employeeToApi(row) {
@@ -333,6 +687,114 @@ async function getStakeholderRows() {
   return result.rows.map(stakeholderRowToApi);
 }
 
+function stakeholderRecordParams(record) {
+  return [
+    cleanValue(record.id, `stakeholder-employee-${Date.now()}`),
+    cleanValue(record.serialNumber, "0"),
+    cleanValue(record.employeeName),
+    cleanValue(record.country),
+    cleanValue(record.state),
+    cleanValue(record.company),
+    cleanValue(record.misCompany, cleanValue(record.company)),
+    cleanValue(record.client),
+    cleanValue(record.mode),
+    cleanValue(record.costExpense),
+    cleanValue(record.billableStatus),
+    cleanValue(record.month),
+    cleanValue(record.monthSort, cleanValue(record.month)),
+    cleanValue(record.employmentStatus, "Active"),
+    cleanValue(record.exitDate, "") || null,
+    cleanValue(record.exitReason, ""),
+    cleanValue(record.exitNotes, ""),
+    Boolean(record.isHidden)
+  ];
+}
+
+async function upsertStakeholderRecord(record) {
+  const result = await dbQuery(
+    `insert into stakeholder_headcount (
+      id, serial_number, employee_name, country, state, company, mis_company,
+      client, mode, cost_expense, billable_status, month_label, month_sort,
+      employment_status, exit_date, exit_reason, exit_notes, is_hidden
+    ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+    on conflict (id) do update set
+      serial_number = excluded.serial_number,
+      employee_name = excluded.employee_name,
+      country = excluded.country,
+      state = excluded.state,
+      company = excluded.company,
+      mis_company = excluded.mis_company,
+      client = excluded.client,
+      mode = excluded.mode,
+      cost_expense = excluded.cost_expense,
+      billable_status = excluded.billable_status,
+      month_label = excluded.month_label,
+      month_sort = excluded.month_sort,
+      employment_status = excluded.employment_status,
+      exit_date = excluded.exit_date,
+      exit_reason = excluded.exit_reason,
+      exit_notes = excluded.exit_notes,
+      is_hidden = excluded.is_hidden,
+      updated_at = now()
+    returning *`,
+    stakeholderRecordParams(record)
+  );
+  return stakeholderRowToApi(result.rows[0]);
+}
+
+async function replaceStakeholderRows(records) {
+  const client = await ensureDb().connect();
+  try {
+    await client.query("begin");
+    await client.query("delete from stakeholder_headcount");
+    const saved = [];
+    for (const record of records) {
+      const result = await client.query(
+        `insert into stakeholder_headcount (
+          id, serial_number, employee_name, country, state, company, mis_company,
+          client, mode, cost_expense, billable_status, month_label, month_sort,
+          employment_status, exit_date, exit_reason, exit_notes, is_hidden
+        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        returning *`,
+        stakeholderRecordParams(record)
+      );
+      saved.push(stakeholderRowToApi(result.rows[0]));
+    }
+    await client.query("commit");
+    return saved;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function setStakeholderRecordVisibility(id, isHidden) {
+  const result = await dbQuery(
+    "update stakeholder_headcount set is_hidden = $2, updated_at = now() where id = $1 returning *",
+    [id, Boolean(isHidden)]
+  );
+  if (!result.rowCount) throw new Error("Stakeholder employee not found.");
+  return stakeholderRowToApi(result.rows[0]);
+}
+
+async function exitStakeholderRecord(id, payload) {
+  const result = await dbQuery(
+    `update stakeholder_headcount
+     set employment_status = 'Exited',
+       exit_date = $2,
+       exit_reason = $3,
+       exit_notes = $4,
+       updated_at = now()
+     where id = $1
+     returning *`,
+    [id, cleanValue(payload.exitDate, "") || null, cleanValue(payload.exitReason, ""), cleanValue(payload.exitNotes, "")]
+  );
+  if (!result.rowCount) throw new Error("Stakeholder employee not found.");
+  return stakeholderRowToApi(result.rows[0]);
+}
+
 function countBy(rows, key) {
   return Object.entries(
     rows.reduce((summary, row) => {
@@ -400,6 +862,58 @@ async function route(req, res) {
     );
     if (!result.rowCount) return sendJson(res, 404, { success: false, error: "User account not found." });
     return sendJson(res, 200, { success: true, must_change_password: false });
+  }
+
+  if (matchesPath(pathname, "/profile/change-password") && req.method === "POST") {
+    const token = parseToken(req.headers.authorization);
+    if (!token.employeeId) return sendJson(res, 401, { success: false, error: "Authentication required." });
+    const payload = await readBody(req);
+    await changeOwnPassword(token.employeeId, payload.currentPassword, payload.newPassword);
+    return sendJson(res, 200, { success: true, must_change_password: false });
+  }
+
+  const normalizedPathname = stripRoutePrefix(pathname);
+
+  if (matchesPath(pathname, "/admin/users") && req.method === "GET") {
+    if (!requireRole(req, res, ["admin"])) return;
+    return sendJson(res, 200, { success: true, users: await getAdminUsers() });
+  }
+
+  if (matchesPath(pathname, "/admin/users") && req.method === "POST") {
+    if (!requireRole(req, res, ["admin"])) return;
+    const user = await upsertAdminUser(await readBody(req));
+    return sendJson(res, 201, { success: true, user });
+  }
+
+  if (normalizedPathname.startsWith("/admin/users/") && req.method === "PUT") {
+    if (!requireRole(req, res, ["admin"])) return;
+    const userId = decodeURIComponent(normalizedPathname.replace("/admin/users/", ""));
+    const user = await upsertAdminUser(await readBody(req), userId);
+    return sendJson(res, 200, { success: true, user });
+  }
+
+  if (normalizedPathname.startsWith("/admin/users/") && normalizedPathname.endsWith("/status") && req.method === "PATCH") {
+    if (!requireRole(req, res, ["admin"])) return;
+    const userId = decodeURIComponent(normalizedPathname.replace("/admin/users/", "").replace("/status", ""));
+    const payload = await readBody(req);
+    const user = await setAdminUserStatus(userId, payload.status);
+    return sendJson(res, 200, { success: true, user });
+  }
+
+  if (normalizedPathname.startsWith("/admin/users/") && normalizedPathname.endsWith("/role") && req.method === "PATCH") {
+    if (!requireRole(req, res, ["admin"])) return;
+    const userId = decodeURIComponent(normalizedPathname.replace("/admin/users/", "").replace("/role", ""));
+    const payload = await readBody(req);
+    const user = await setAdminUserRole(userId, payload.role);
+    return sendJson(res, 200, { success: true, user });
+  }
+
+  if (normalizedPathname.startsWith("/admin/users/") && normalizedPathname.endsWith("/password-reset") && req.method === "PATCH") {
+    if (!requireRole(req, res, ["admin"])) return;
+    const userId = decodeURIComponent(normalizedPathname.replace("/admin/users/", "").replace("/password-reset", ""));
+    const payload = await readBody(req);
+    const user = await resetAdminUserPassword(userId, payload.temporaryPassword ?? payload.password);
+    return sendJson(res, 200, { success: true, user });
   }
 
   if (pathname === "/api/hr/managers" && req.method === "GET") {
@@ -560,6 +1074,43 @@ async function route(req, res) {
   if (pathname === "/stakeholder/employees" && req.method === "GET") {
     if (!requireRole(req, res, ["stakeholder"])) return;
     return handleStakeholderData(res, (rows) => ({ employees: rows }));
+  }
+
+  if (pathname === "/stakeholder/employees" && req.method === "POST") {
+    if (!requireRole(req, res, ["stakeholder"])) return;
+    const employee = await upsertStakeholderRecord(await readBody(req));
+    return sendJson(res, 201, { success: true, employee });
+  }
+
+  if (pathname === "/stakeholder/employees/bulk" && req.method === "PUT") {
+    if (!requireRole(req, res, ["stakeholder"])) return;
+    const payload = await readBody(req);
+    const rows = Array.isArray(payload.records) ? payload.records : [];
+    const employees = await replaceStakeholderRows(rows);
+    return sendJson(res, 200, { success: true, employees });
+  }
+
+  if (pathname.startsWith("/stakeholder/employees/") && pathname.endsWith("/visibility") && req.method === "PATCH") {
+    if (!requireRole(req, res, ["stakeholder"])) return;
+    const employeeId = decodeURIComponent(pathname.replace("/stakeholder/employees/", "").replace("/visibility", ""));
+    const payload = await readBody(req);
+    const employee = await setStakeholderRecordVisibility(employeeId, payload.isHidden);
+    return sendJson(res, 200, { success: true, employee });
+  }
+
+  if (pathname.startsWith("/stakeholder/employees/") && pathname.endsWith("/exit") && req.method === "PATCH") {
+    if (!requireRole(req, res, ["stakeholder"])) return;
+    const employeeId = decodeURIComponent(pathname.replace("/stakeholder/employees/", "").replace("/exit", ""));
+    const employee = await exitStakeholderRecord(employeeId, await readBody(req));
+    return sendJson(res, 200, { success: true, employee });
+  }
+
+  if (pathname.startsWith("/stakeholder/employees/") && req.method === "PUT") {
+    if (!requireRole(req, res, ["stakeholder"])) return;
+    const employeeId = decodeURIComponent(pathname.replace("/stakeholder/employees/", ""));
+    const payload = await readBody(req);
+    const employee = await upsertStakeholderRecord({ ...payload, id: employeeId });
+    return sendJson(res, 200, { success: true, employee });
   }
 
   if (pathname.startsWith("/stakeholder/employees/") && req.method === "GET") {

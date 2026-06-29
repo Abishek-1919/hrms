@@ -1,9 +1,10 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { LockKeyhole } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { Button } from "@/components/common/Button";
@@ -28,6 +29,8 @@ export function ForcePasswordChangePage() {
   const navigate = useNavigate();
   const { user, accessToken } = useAppSelector((state) => state.auth);
   const [changePassword] = useChangePasswordMutation();
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
   const {
     register,
@@ -80,16 +83,38 @@ export function ForcePasswordChangePage() {
           <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <TextField
               label="New Password"
-              type="password"
+              type={isPasswordVisible ? "text" : "password"}
               autoComplete="new-password"
               error={errors.password?.message}
+              rightElement={
+                <button
+                  type="button"
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                  title={isPasswordVisible ? "Hide password" : "Show password"}
+                  className="rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  onClick={() => setIsPasswordVisible((current) => !current)}
+                >
+                  {isPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              }
               {...register("password")}
             />
             <TextField
               label="Confirm New Password"
-              type="password"
+              type={isConfirmPasswordVisible ? "text" : "password"}
               autoComplete="new-password"
               error={errors.confirmPassword?.message}
+              rightElement={
+                <button
+                  type="button"
+                  aria-label={isConfirmPasswordVisible ? "Hide password" : "Show password"}
+                  title={isConfirmPasswordVisible ? "Hide password" : "Show password"}
+                  className="rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  onClick={() => setIsConfirmPasswordVisible((current) => !current)}
+                >
+                  {isConfirmPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              }
               {...register("confirmPassword")}
             />
             <Button className="w-full justify-center" type="submit" disabled={isSubmitting}>

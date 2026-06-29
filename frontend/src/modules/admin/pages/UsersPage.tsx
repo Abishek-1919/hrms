@@ -1,8 +1,8 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { KeyRound, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Eye, EyeOff, KeyRound, Plus, RotateCcwKey, X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Role, User } from "@hrms/shared-types";
-import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
+import { useAppSelector } from "@/app/store/hooks";
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
@@ -10,7 +10,8 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SelectField } from "@/components/forms/SelectField";
 import { TextField } from "@/components/forms/TextField";
 import { DataTable } from "@/components/tables/DataTable";
-import { createPortalUser, deactivateEmployee, reactivateEmployee } from "@/modules/employees/employeeSlice";
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
 const roleOptions: { value: Role; label: string }[] = [
   { value: "employee", label: "Employee" },
@@ -38,12 +39,99 @@ const initialForm = {
 };
 
 export function UsersPage() {
-  const dispatch = useAppDispatch();
-  const { employees, userAccounts } = useAppSelector((state) => state.employees);
-  const { user: currentUser } = useAppSelector((state) => state.auth);
+  const { user: currentUser, accessToken } = useAppSelector((state) => state.auth);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [resetPassword, setResetPassword] = useState("Temp@123");
+  const [isResetPasswordVisible, setIsResetPasswordVisible] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const authHeaders = useMemo(
+    () => ({
+      "Content-Type": "application/json",
+      authorization: `Bearer ${accessToken}`
+    }),
+    [accessToken]
+  );
+
+  const loadUsers = useCallback(async () => {
+    if (!accessToken) return;
+    const response = await fetch(`${apiBaseUrl}/admin/users`, {
+      headers: authHeaders
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error ?? "Unable to load users.");
+    }
+    setUsers(data.users ?? []);
+  }, [accessToken, authHeaders]);
+
+  useEffect(() => {
+    loadUsers().catch((err) => {
+      setError(err instanceof Error ? err.message : "Unable to load users.");
+    });
+  }, [loadUsers]);
+
+  const patchUser = useCallback(
+    async (userId: string, path: string, body: Record<string, unknown>) => {
+      const response = await fetch(`${apiBaseUrl}/admin/users/${encodeURIComponent(userId)}${path}`, {
+        method: "PATCH",
+        headers: authHeaders,
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Unable to update user.");
+      setUsers((current) => current.map((user) => (user.id === userId ? data.user : user)));
+      setError("");
+      return data.user as User;
+    },
+    [authHeaders]
+  );
+
+  const updateUserRole = useCallback(
+    async (userId: string, role: Role) => {
+      const previousUsers = users;
+      try {
+        setUsers((current) => current.map((user) => (user.id === userId ? { ...user, role } : user)));
+        await patchUser(userId, "/role", { role });
+      } catch (err) {
+        setUsers(previousUsers);
+        setError(err instanceof Error ? err.message : "Unable to update user role.");
+      }
+    },
+    [patchUser, users]
+  );
+
+  const openResetPassword = useCallback((user: User) => {
+    setResetTarget(user);
+    setResetPassword("Temp@123");
+    setIsResetPasswordVisible(false);
+    setError("");
+  }, []);
+
+  const submitPasswordReset = useCallback(
+    async () => {
+      if (!resetTarget) return;
+      if (resetPassword.length < 8) {
+        setError("Temporary password must be at least 8 characters.");
+        return;
+      }
+      try {
+        setIsResetting(true);
+        await patchUser(resetTarget.id, "/password-reset", { temporaryPassword: resetPassword });
+        setResetTarget(null);
+        setResetPassword("Temp@123");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to reset password.");
+      } finally {
+        setIsResetting(false);
+      }
+    },
+    [patchUser, resetPassword, resetTarget]
+  );
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
@@ -52,11 +140,24 @@ export function UsersPage() {
       {
         accessorKey: "role",
         header: "Role",
-        cell: ({ row }) => (
-          <Badge tone={row.original.role === "admin" ? "danger" : row.original.role === "manager" ? "info" : "default"}>
-            {row.original.role}
-          </Badge>
-        )
+        cell: ({ row }) => {
+          const isSelf = row.original.id === currentUser?.id;
+          return (
+            <select
+              className="h-9 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground shadow-sm disabled:opacity-60"
+              value={row.original.role}
+              disabled={isSelf}
+              aria-label={`Role for ${row.original.name}`}
+              onChange={(event) => updateUserRole(row.original.id, event.target.value as Role)}
+            >
+              {roleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          );
+        }
       },
       { accessorKey: "department", header: "Department" },
       { accessorKey: "designation", header: "Designation" },
@@ -73,42 +174,36 @@ export function UsersPage() {
           const isActive = row.original.status === "active";
 
           return (
-            <Button
-              variant={isActive ? "danger" : "secondary"}
-              size="sm"
-              disabled={isSelf}
-              onClick={() => dispatch(isActive ? deactivateEmployee(row.original.id) : reactivateEmployee(row.original.id))}
-            >
-              {isActive ? "Make inactive" : "Make active"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={isActive ? "danger" : "secondary"}
+                size="sm"
+                disabled={isSelf}
+                onClick={async () => {
+                  try {
+                    const nextStatus = isActive ? "inactive" : "active";
+                    await patchUser(row.original.id, "/status", { status: nextStatus });
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Unable to update user status.");
+                  }
+                }}
+              >
+                {isActive ? "Make inactive" : "Make active"}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => openResetPassword(row.original)}
+              >
+                <RotateCcwKey className="h-4 w-4" />
+                Reset
+              </Button>
+            </div>
           );
         }
       }
     ],
-    [currentUser?.id, dispatch]
-  );
-
-  const users = useMemo<User[]>(
-    () =>
-      userAccounts
-        .map((account) => {
-          const employee = employees.find((item) => item.employee_id === account.employee_id);
-          if (!employee) return null;
-
-          return {
-            id: employee.employee_id,
-            name: `${employee.first_name} ${employee.last_name}`,
-            email: employee.email,
-            role: account.role,
-            department: employee.department,
-            designation: employee.designation,
-            manager: employee.manager_id,
-            status: account.is_active && employee.status === "active" ? "active" : "inactive",
-            must_change_password: account.must_change_password
-          } satisfies User;
-        })
-        .filter(Boolean) as User[],
-    [employees, userAccounts]
+    [currentUser?.id, openResetPassword, patchUser, updateUserRole]
   );
 
   const updateForm = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -116,7 +211,7 @@ export function UsersPage() {
     setError("");
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const requiredFields = [form.firstName, form.lastName, form.email, form.phone, form.department, form.designation, form.password];
     if (requiredFields.some((value) => !value.trim())) {
@@ -125,8 +220,10 @@ export function UsersPage() {
     }
 
     try {
-      dispatch(
-        createPortalUser({
+      const response = await fetch(`${apiBaseUrl}/admin/users`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           email: form.email.trim(),
@@ -135,9 +232,16 @@ export function UsersPage() {
           department: form.department.trim(),
           designation: form.designation.trim(),
           password: form.password,
-          isActive: form.status === "active"
+          status: form.status
         })
-      );
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Unable to create user.");
+      setUsers((current) => {
+        const nextUser = data.user as User;
+        const exists = current.some((user) => user.id === nextUser.id);
+        return exists ? current.map((user) => (user.id === nextUser.id ? nextUser : user)) : [...current, nextUser];
+      });
       setForm(initialForm);
       setShowForm(false);
       setError("");
@@ -188,6 +292,60 @@ export function UsersPage() {
             </form>
           </CardContent>
         </Card>
+      ) : null}
+
+      {resetTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Password reset</p>
+                <h2 className="mt-2 text-xl font-semibold text-foreground">{resetTarget.name}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{resetTarget.email}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setResetTarget(null)} aria-label="Close password reset">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <TextField
+                label="Temporary password"
+                type={isResetPasswordVisible ? "text" : "password"}
+                value={resetPassword}
+                onChange={(event) => {
+                  setResetPassword(event.target.value);
+                  setError("");
+                }}
+                rightElement={
+                  <button
+                    type="button"
+                    aria-label={isResetPasswordVisible ? "Hide password" : "Show password"}
+                    title={isResetPasswordVisible ? "Hide password" : "Show password"}
+                    className="rounded-full p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    onClick={() => setIsResetPasswordVisible((current) => !current)}
+                  >
+                    {isResetPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                The user will sign in with this temporary password and must change it before accessing the workspace.
+              </p>
+              {error ? <p className="text-sm font-medium text-danger">{error}</p> : null}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setResetTarget(null)} disabled={isResetting}>
+                Cancel
+              </Button>
+              <Button onClick={submitPasswordReset} disabled={isResetting}>
+                <RotateCcwKey className="h-4 w-4" />
+                {isResetting ? "Resetting..." : "Reset password"}
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <Card>

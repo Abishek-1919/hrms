@@ -1,55 +1,46 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAppSelector } from "@/app/store/hooks";
 import { defaultHeadcountData } from "@/modules/stakeholders/data/defaultHeadcountData";
-import {
-  loadStoredStakeholderRows,
-  saveStakeholderRows,
-  type StakeholderEmployeeRecord
-} from "@/modules/stakeholders/utils/headcount";
+import type { StakeholderEmployeeRecord } from "@/modules/stakeholders/utils/headcount";
 
-const restoredEmployeeNames = new Set(["A Lokeswari", "Abhishek Kumar Pathak"]);
-
-function restoreRequiredEmployees(records: StakeholderEmployeeRecord[]) {
-  const existingNames = new Set(records.map((record) => record.employeeName));
-  const missingDefaults = defaultHeadcountData.filter(
-    (record) => restoredEmployeeNames.has(record.employeeName) && !existingNames.has(record.employeeName)
-  );
-  if (!missingDefaults.length) return records;
-  return [...records, ...missingDefaults.map((record) => ({ ...record, employmentStatus: "Active" as const, isHidden: false }))];
-}
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
 export function useStakeholderHeadcount() {
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
   const [records, setRecords] = useState<StakeholderEmployeeRecord[]>([]);
-  const [source, setSource] = useState("Summary sheet default");
+  const [source, setSource] = useState("Supabase stakeholder_headcount");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadRecords = useCallback(() => {
+  const loadRecords = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
-      const stored = loadStoredStakeholderRows();
-      if (stored?.length) {
-        const restored = restoreRequiredEmployees(stored);
-        if (restored.length !== stored.length) {
-          saveStakeholderRows(restored);
-        }
-        setRecords(restored);
-        setSource("Uploaded workbook");
-      } else {
-        setRecords(defaultHeadcountData);
-        setSource("Provided Summary sheet");
+      if (!accessToken) {
+        throw new Error("Stakeholder authentication is required.");
       }
-    } catch {
+      const response = await fetch(`${apiBaseUrl}/stakeholder/employees`, {
+        headers: {
+          authorization: `Bearer ${accessToken}`
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to load stakeholder data.");
+      }
+      setRecords(data.employees ?? []);
+      setSource("Supabase stakeholder_headcount");
+    } catch (loadError) {
       setRecords(defaultHeadcountData);
       setSource("Provided Summary sheet");
-      setError("Stored stakeholder data could not be loaded. Showing the provided workbook data.");
+      setError(loadError instanceof Error ? loadError.message : "Stakeholder data could not be loaded from Supabase.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
-    loadRecords();
+    void loadRecords();
   }, [loadRecords]);
 
   return { records, source, isLoading, error, reload: loadRecords };

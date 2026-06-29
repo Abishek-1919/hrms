@@ -7,17 +7,16 @@ import { Card, CardContent, CardHeader } from "@/components/common/Card";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SelectField } from "@/components/forms/SelectField";
 import { TextField } from "@/components/forms/TextField";
+import { useAppSelector } from "@/app/store/hooks";
 import { useStakeholderHeadcount } from "@/modules/stakeholders/hooks/useStakeholderHeadcount";
 import {
-  exitStakeholderRow,
   filterStakeholderRecords,
   formatMonthFromDate,
-  saveStakeholderRows,
-  setStakeholderHidden,
   uniqueOptions,
-  upsertStakeholderRow,
   type StakeholderEmployeeRecord
 } from "@/modules/stakeholders/utils/headcount";
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
 type SortKey = keyof Pick<
   StakeholderEmployeeRecord,
@@ -147,6 +146,7 @@ function ModalShell({
 }
 
 export function StakeholderDirectoryPage() {
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
   const { records, source, isLoading, error, reload } = useStakeholderHeadcount();
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
@@ -164,6 +164,22 @@ export function StakeholderDirectoryPage() {
   const [formError, setFormError] = useState("");
   const [exitTarget, setExitTarget] = useState<StakeholderEmployeeRecord | null>(null);
   const [exitForm, setExitForm] = useState<ExitFormState>({ exitDate: "", exitReason: "", exitNotes: "" });
+
+  const stakeholderHeaders = {
+    "Content-Type": "application/json",
+    authorization: `Bearer ${accessToken}`
+  };
+
+  const saveStakeholderEmployee = async (employee: StakeholderEmployeeRecord) => {
+    const isExisting = records.some((record) => record.id === employee.id);
+    const response = await fetch(`${apiBaseUrl}/stakeholder/employees${isExisting ? `/${encodeURIComponent(employee.id)}` : ""}`, {
+      method: isExisting ? "PUT" : "POST",
+      headers: stakeholderHeaders,
+      body: JSON.stringify(employee)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Unable to save stakeholder employee.");
+  };
 
   const filteredRecords = useMemo(
     () =>
@@ -231,7 +247,7 @@ export function StakeholderDirectoryPage() {
     setForm((current) => (current ? { ...current, [key]: value } : current));
   };
 
-  const saveEmployee = () => {
+  const saveEmployee = async () => {
     if (!form) return;
     const required: (keyof EmployeeFormState)[] = ["employeeName", "joiningDate", "company", "country", "mode", "costExpense", "client", "billableStatus"];
     if (required.some((key) => !form[key]?.trim())) {
@@ -239,26 +255,51 @@ export function StakeholderDirectoryPage() {
       return;
     }
 
-    saveStakeholderRows(upsertStakeholderRow(records, formToEmployee(form, records)));
-    reload();
-    setForm(null);
-    setFormError("");
+    try {
+      await saveStakeholderEmployee(formToEmployee(form, records));
+      await reload();
+      setForm(null);
+      setFormError("");
+    } catch (saveError) {
+      setFormError(saveError instanceof Error ? saveError.message : "Unable to save employee to Supabase.");
+    }
   };
 
-  const toggleEmployeeVisibility = (employee: StakeholderEmployeeRecord) => {
+  const toggleEmployeeVisibility = async (employee: StakeholderEmployeeRecord) => {
     const action = employee.isHidden ? "unhide" : "hide";
     if (!window.confirm(`${action === "hide" ? "Hide" : "Unhide"} ${employee.employeeName} from stakeholder dashboard visibility?`)) return;
-    saveStakeholderRows(setStakeholderHidden(records, employee.id, !employee.isHidden));
-    reload();
+    try {
+      const response = await fetch(`${apiBaseUrl}/stakeholder/employees/${encodeURIComponent(employee.id)}/visibility`, {
+        method: "PATCH",
+        headers: stakeholderHeaders,
+        body: JSON.stringify({ isHidden: !employee.isHidden })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Unable to update visibility.");
+      await reload();
+    } catch (visibilityError) {
+      setFormError(visibilityError instanceof Error ? visibilityError.message : "Unable to update visibility in Supabase.");
+    }
   };
 
-  const saveExit = () => {
+  const saveExit = async () => {
     if (!exitTarget) return;
     if (!exitForm.exitDate || !exitForm.exitReason.trim()) return;
-    saveStakeholderRows(exitStakeholderRow(records, exitTarget.id, exitForm));
-    reload();
-    setExitTarget(null);
-    setExitForm({ exitDate: "", exitReason: "", exitNotes: "" });
+    try {
+      const response = await fetch(`${apiBaseUrl}/stakeholder/employees/${encodeURIComponent(exitTarget.id)}/exit`, {
+        method: "PATCH",
+        headers: stakeholderHeaders,
+        body: JSON.stringify(exitForm)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Unable to save employee exit.");
+      await reload();
+      setExitTarget(null);
+      setExitForm({ exitDate: "", exitReason: "", exitNotes: "" });
+      setFormError("");
+    } catch (exitError) {
+      setFormError(exitError instanceof Error ? exitError.message : "Unable to save exit to Supabase.");
+    }
   };
 
   return (
