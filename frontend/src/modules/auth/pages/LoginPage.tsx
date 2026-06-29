@@ -58,28 +58,28 @@ export function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f8faf7]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_16%,rgba(216,170,99,0.24),transparent_30%),radial-gradient(circle_at_84%_12%,rgba(47,111,219,0.18),transparent_28%),linear-gradient(135deg,#fffaf0_0%,#f4f8ff_46%,#eef7f2_100%)]" />
-      <div className="absolute left-0 top-0 h-full w-full opacity-[0.08] [background-image:linear-gradient(rgba(31,38,49,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(31,38,49,0.45)_1px,transparent_1px)] [background-size:42px_42px]" />
+    <main className="relative min-h-screen overflow-hidden bg-[color:var(--bg-main)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_16%,rgba(216,170,99,0.24),transparent_30%),radial-gradient(circle_at_84%_12%,rgba(47,111,219,0.18),transparent_28%),linear-gradient(135deg,#fffaf0_0%,#f4f8ff_46%,#eef7f2_100%)] dark:bg-[radial-gradient(circle_at_14%_16%,rgba(216,170,99,0.16),transparent_30%),radial-gradient(circle_at_84%_12%,rgba(75,141,255,0.16),transparent_28%),linear-gradient(135deg,#090a0c_0%,#111827_48%,#0c1110_100%)]" />
+      <div className="absolute left-0 top-0 h-full w-full opacity-[0.08] [background-image:linear-gradient(rgba(31,38,49,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(31,38,49,0.45)_1px,transparent_1px)] [background-size:42px_42px] dark:opacity-[0.12] dark:[background-image:linear-gradient(rgba(245,241,232,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(245,241,232,0.22)_1px,transparent_1px)]" />
 
       <section className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-8 px-5 py-8 lg:grid-cols-[0.88fr_1.12fr] lg:px-8">
         <div className="mx-auto w-full max-w-md lg:mx-0">
-          <div className="mb-7 inline-flex items-center gap-3 rounded-2xl border border-white/70 bg-white/70 px-4 py-3 shadow-[0_18px_42px_rgba(31,38,49,0.10)] backdrop-blur">
+          <div className="mb-7 inline-flex items-center gap-3 rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--bg-card)]/80 px-4 py-3 shadow-[0_18px_42px_rgba(31,38,49,0.10)] backdrop-blur dark:shadow-[0_18px_42px_rgba(0,0,0,0.24)]">
             <BrandLogo className="h-10 w-24 shrink-0" />
             <div>
-              <p className="text-base font-semibold text-[#172033]">MethodHub HRMS</p>
-              <p className="text-sm text-[#5b6b82]">Secure employee operations</p>
+              <p className="text-base font-semibold text-foreground">MethodHub HRMS</p>
+              <p className="text-sm text-muted-foreground">Secure employee operations</p>
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-white/80 bg-white/86 p-6 shadow-[0_28px_70px_rgba(31,38,49,0.18)] backdrop-blur-xl sm:p-7">
+          <div className="rounded-[28px] border border-[color:var(--border-soft)] bg-[color:var(--bg-card)]/88 p-6 text-foreground shadow-[0_28px_70px_rgba(31,38,49,0.18)] backdrop-blur-xl dark:shadow-[0_28px_70px_rgba(0,0,0,0.36)] sm:p-7">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#d8aa63]/30 bg-[#fff7e8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#8b6429]">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Enterprise access
               </div>
-              <h1 className="text-3xl font-semibold tracking-normal text-[#172033]">Sign in to your workspace</h1>
-              <p className="mt-3 text-sm leading-6 text-[#60708a]">
+              <h1 className="text-3xl font-semibold tracking-normal text-foreground">Sign in to your workspace</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Continue to the HRMS portal with role-aware dashboards, approvals, employee records, and workforce insights.
               </p>
             </div>
@@ -101,7 +101,7 @@ export function LoginPage() {
                     type="button"
                     aria-label={isPasswordVisible ? "Hide password" : "Show password"}
                     title={isPasswordVisible ? "Hide password" : "Show password"}
-                    className="rounded-full p-1 text-[#60708a] transition hover:bg-[#eef4ff] hover:text-[#172033] focus:outline-none focus:ring-2 focus:ring-[#d8aa63]/35"
+                    className="rounded-full p-1 text-muted-foreground transition hover:bg-[hsl(var(--accent))] hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/35"
                     onClick={() => setIsPasswordVisible((current) => !current)}
                   >
                     {isPasswordVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
