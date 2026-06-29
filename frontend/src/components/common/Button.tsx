@@ -10,10 +10,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-button text-primary-foreground hover:bg-primary",
-  secondary: "border border-border bg-card text-foreground hover:bg-muted",
-  ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
-  danger: "bg-danger text-white hover:bg-danger/90"
+  primary: "border border-[color:var(--border-soft)] bg-[linear-gradient(180deg,hsl(var(--button))_0%,hsl(var(--button-hover-hsl))_100%)] text-[color:var(--button-text)] shadow-[0_10px_24px_rgba(31,38,49,0.16)] hover:brightness-105",
+  secondary: "border border-[color:var(--border-soft)] bg-[color:var(--bg-elevated)] text-foreground shadow-[var(--field-shadow)] hover:bg-[color:var(--muted)]",
+  ghost: "text-muted-foreground hover:bg-[color:var(--nav-hover-bg)] hover:text-foreground",
+  danger: "border border-transparent bg-[linear-gradient(180deg,hsl(var(--danger))_0%,color-mix(in_srgb,hsl(var(--danger))_78%,black)_100%)] text-white shadow-[0_10px_24px_rgba(31,38,49,0.16)] hover:brightness-105"
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -28,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded font-normal transition disabled:pointer-events-none disabled:opacity-55",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-55",
         variants[variant],
         sizes[size],
         className

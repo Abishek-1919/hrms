@@ -16,9 +16,9 @@ export function StatCard({
 }) {
   const toneClass = {
     primary: "bg-accent text-accent-foreground",
-    success: "bg-successBg text-success dark:bg-success/20 dark:text-green-200",
-    warning: "bg-warningBg text-amber-800 dark:bg-warning/20 dark:text-amber-200",
-    info: "bg-accent text-accent-foreground"
+    success: "bg-[hsl(var(--success)/0.14)] text-[hsl(var(--success))]",
+    warning: "bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]",
+    info: "bg-[color:rgba(75,141,255,0.14)] text-[color:var(--accent-secondary)]"
   }[tone];
 
   return (

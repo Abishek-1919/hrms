@@ -11,6 +11,22 @@ export interface EmployeeState {
 
 const storageKey = "hrms-employees";
 
+function isValidEmployeeCode(code: string) {
+  return /^MH-\d{3}$|^EMP-\d{3}$/.test(code);
+}
+
+function isValidEmployeeName(firstName: string, lastName: string) {
+  const fullName = `${firstName} ${lastName}`.trim();
+  if (!fullName) return false;
+  if (/^[\d\s-]+$/.test(fullName)) return false;
+  if (/ewwewe/i.test(fullName)) return false;
+  return true;
+}
+
+function sanitizeEmployees(records: Employee[]) {
+  return records.filter((employee) => isValidEmployeeCode(employee.employee_code) && isValidEmployeeName(employee.first_name, employee.last_name));
+}
+
 const seedEmployees: Employee[] = [
   {
     employee_id: "usr-001",
@@ -83,6 +99,35 @@ const seedEmployees: Employee[] = [
     created_by: "usr-003",
     created_at: "2022-10-01T00:00:00.000Z",
     updated_at: "2022-10-01T00:00:00.000Z"
+  },
+  {
+    employee_id: "usr-006",
+    employee_code: "MH-006",
+    first_name: "Kavya",
+    last_name: "Nair",
+    email: "hr@methodhub.com",
+    phone: "9876543215",
+    dob: "1993-08-12",
+    gender: "female",
+    address: "Chennai",
+    date_of_joining: "2023-08-01",
+    employment_type: "permanent",
+    designation: "HR Generalist",
+    department: "People Operations",
+    role: "hr",
+    status: "active",
+    timezone: "Asia/Kolkata",
+    shift_start: "09:00",
+    shift_end: "18:00",
+    daily_hours: 8,
+    weekly_hours: 40,
+    work_mode: "office",
+    office_location: "Chennai",
+    location: "Chennai",
+    manager_id: "usr-002",
+    created_by: "usr-003",
+    created_at: "2023-08-01T00:00:00.000Z",
+    updated_at: "2023-08-01T00:00:00.000Z"
   },
   {
     employee_id: "usr-004",
@@ -174,7 +219,7 @@ const seedUserAccounts: UserAccount[] = [
     user_id: "ua-001",
     employee_id: "usr-001",
     username: "aarav.mehta",
-    password_hash: "password",
+    password_hash: "Employee@methodhub",
     role: "employee",
     must_change_password: false,
     is_active: true
@@ -183,7 +228,7 @@ const seedUserAccounts: UserAccount[] = [
     user_id: "ua-002",
     employee_id: "usr-002",
     username: "priya.rao",
-    password_hash: "password",
+    password_hash: "Manager@methodhub",
     role: "manager",
     must_change_password: false,
     is_active: true
@@ -192,7 +237,7 @@ const seedUserAccounts: UserAccount[] = [
     user_id: "ua-003",
     employee_id: "usr-003",
     username: "nisha.varma",
-    password_hash: "password",
+    password_hash: "Admin@methodhub",
     role: "admin",
     must_change_password: false,
     is_active: true
@@ -201,7 +246,7 @@ const seedUserAccounts: UserAccount[] = [
     user_id: "ua-004",
     employee_id: "usr-004",
     username: "rahul.sen",
-    password_hash: "password",
+    password_hash: "Employee@methodhub",
     role: "employee",
     must_change_password: false,
     is_active: true
@@ -210,10 +255,19 @@ const seedUserAccounts: UserAccount[] = [
     user_id: "ua-005",
     employee_id: "usr-005",
     username: "meera.iyer",
-    password_hash: "password",
+    password_hash: "Employee@methodhub",
     role: "employee",
     must_change_password: false,
     is_active: false
+  },
+  {
+    user_id: "ua-006",
+    employee_id: "usr-006",
+    username: "kavya.nair",
+    password_hash: "HR@methodhub",
+    role: "hr",
+    must_change_password: false,
+    is_active: true
   }
 ];
 
@@ -229,12 +283,16 @@ const getInitialState = (): EmployeeState => {
   }
   try {
     const parsed = JSON.parse(raw);
-    return {
-      employees: parsed.employees || seedEmployees,
-      employeeProjects: parsed.employeeProjects || seedEmployeeProjects,
-      userAccounts: parsed.userAccounts || seedUserAccounts,
-      managerMappings: parsed.managerMappings || employeeManagerMappings
+    const employees = sanitizeEmployees(parsed.employees || seedEmployees);
+    const employeeIds = new Set(employees.map((employee) => employee.employee_id));
+    const normalizedState = {
+      employees,
+      employeeProjects: (parsed.employeeProjects || seedEmployeeProjects).filter((project: EmployeeProject) => employeeIds.has(project.employee_id)),
+      userAccounts: (parsed.userAccounts || seedUserAccounts).filter((account: UserAccount) => employeeIds.has(account.employee_id)),
+      managerMappings: (parsed.managerMappings || employeeManagerMappings).filter((mapping: EmployeeManagerMapping) => employeeIds.has(mapping.employeeId))
     };
+    localStorage.setItem(storageKey, JSON.stringify(normalizedState));
+    return normalizedState;
   } catch {
     return {
       employees: seedEmployees,
@@ -264,6 +322,28 @@ const employeeSlice = createSlice({
       const nextIdNum = state.employees.length + 1;
       const employee_id = `EMP-${String(nextIdNum).padStart(3, "0")}`;
       const timestamp = new Date().toISOString();
+      const duplicateCode = state.employees.some(
+        (employee) => employee.employee_code.toLowerCase() === action.payload.employee.employee_code.toLowerCase()
+      );
+      const duplicateEmail = state.employees.some(
+        (employee) => employee.email.toLowerCase() === action.payload.employee.email.toLowerCase()
+      );
+      const managerExists = state.userAccounts.some(
+        (account) =>
+          account.employee_id === action.payload.employee.manager_id &&
+          account.role === "manager" &&
+          account.is_active
+      );
+
+      if (duplicateCode) {
+        throw new Error("Employee code already exists.");
+      }
+      if (duplicateEmail) {
+        throw new Error("Work email already exists.");
+      }
+      if (!managerExists) {
+        throw new Error("Selected manager does not exist.");
+      }
 
       const newEmployee: Employee = {
         ...action.payload.employee,
@@ -303,7 +383,9 @@ const employeeSlice = createSlice({
 
       state.employees.push(newEmployee);
       state.employeeProjects.push(...newProjects);
-      state.userAccounts.push(newUserAccount);
+      if (action.payload.employee.login_enabled !== false) {
+        state.userAccounts.push(newUserAccount);
+      }
 
       // Auto add under MH Manager's team
       if (action.payload.employee.manager_id) {
@@ -427,6 +509,82 @@ const employeeSlice = createSlice({
         acc.must_change_password = false;
         persistState(state);
       }
+    },
+    createPortalUser: (
+      state,
+      action: PayloadAction<{
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string;
+        role: Role;
+        department: string;
+        designation: string;
+        password: string;
+        isActive: boolean;
+      }>
+    ) => {
+      const payload = action.payload;
+      const duplicateEmail = state.employees.some(
+        (employee) => employee.email.toLowerCase() === payload.email.toLowerCase()
+      );
+
+      if (duplicateEmail) {
+        throw new Error("Work email already exists.");
+      }
+
+      const nextIdNum = state.employees.length + 1;
+      const employeeId = `EMP-${String(nextIdNum).padStart(3, "0")}`;
+      const timestamp = new Date().toISOString();
+      const first = payload.firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const last = payload.lastName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const usernameBase = `${first}.${last}`;
+      let username = usernameBase;
+      let suffix = 1;
+
+      while (state.userAccounts.some((account) => account.username === username)) {
+        username = `${usernameBase}${suffix}`;
+        suffix++;
+      }
+
+      state.employees.push({
+        employee_id: employeeId,
+        employee_code: employeeId,
+        first_name: payload.firstName,
+        last_name: payload.lastName,
+        email: payload.email,
+        phone: payload.phone,
+        date_of_joining: timestamp.split("T")[0],
+        employment_type: "permanent",
+        designation: payload.designation,
+        department: payload.department,
+        role: payload.role,
+        portal_role: payload.role,
+        status: payload.isActive ? "active" : "inactive",
+        timezone: "Asia/Kolkata",
+        shift_start: "09:00",
+        shift_end: "18:00",
+        daily_hours: 8,
+        weekly_hours: 40,
+        work_mode: "office",
+        office_location: "Chennai",
+        manager_id: "",
+        created_by: "usr-003",
+        created_at: timestamp,
+        updated_at: timestamp
+      });
+
+      state.userAccounts.push({
+        user_id: `UA-${employeeId}`,
+        employee_id: employeeId,
+        username,
+        password_hash: payload.password,
+        role: payload.role,
+        must_change_password: true,
+        is_active: payload.isActive
+      });
+
+      persistState(state);
     }
   }
 });
@@ -437,7 +595,8 @@ export const {
   deactivateEmployee,
   reactivateEmployee,
   resetPassword,
-  changePasswordForUser
+  changePasswordForUser,
+  createPortalUser
 } = employeeSlice.actions;
 
 export default employeeSlice.reducer;

@@ -102,6 +102,24 @@ export const demoUsers: User[] = [
     status: "active"
   },
   {
+    id: "usr-006",
+    name: "Kavya Nair",
+    email: "hr@methodhub.com",
+    role: "hr",
+    department: "People Operations",
+    designation: "HR Generalist",
+    status: "active"
+  },
+  {
+    id: "stake-001",
+    name: "Stakeholder Viewer",
+    email: "stakeholder@methodhub.com",
+    role: "stakeholder",
+    department: "Executive Office",
+    designation: "Business Stakeholder",
+    status: "active"
+  },
+  {
     id: "usr-004",
     name: "Rahul Sen",
     email: "rahul.sen@methodhub.com",
@@ -127,13 +145,30 @@ export const employeeCategories: EmployeeCategory[] = ["Billable", "Non-Billable
 
 export const workTypes: WorkType[] = ["Client", "Internal"];
 
-export const projects = ["HRMS Portal", "Payroll Modernization", "Client Analytics", "Internal Automation"];
+export const projects = [
+  "HRMS Portal",
+  "Payroll Modernization",
+  "Client Analytics",
+  "Internal Automation",
+  "Recruitment Analytics Suite",
+  "Client Delivery Platform",
+  "Leave Automation Hub",
+  "Talent Insights Console",
+  "Employee Self-Service Revamp",
+  "Regional Onboarding Program"
+];
 
 export const projectCatalog: ProjectDefinition[] = [
   { id: "prj-001", name: "HRMS Portal", clientName: "MethodHub", status: "Active", active: true, billingType: "Billable" },
   { id: "prj-002", name: "Payroll Modernization", clientName: "MethodHub", status: "Active", active: true, billingType: "Non-Billable" },
   { id: "prj-003", name: "Client Analytics", clientName: "Northwind Retail", status: "Active", active: true, billingType: "Billable" },
   { id: "prj-004", name: "Internal Automation", clientName: "MethodHub", status: "Active", active: true, billingType: "Non-Billable" },
+  { id: "prj-006", name: "Recruitment Analytics Suite", clientName: "MethodHub", status: "Active", active: true, billingType: "Billable" },
+  { id: "prj-007", name: "Client Delivery Platform", clientName: "Contoso", status: "Planning", active: true, billingType: "Billable" },
+  { id: "prj-008", name: "Leave Automation Hub", clientName: "MethodHub", status: "Active", active: true, billingType: "Non-Billable" },
+  { id: "prj-009", name: "Talent Insights Console", clientName: "Northwind Retail", status: "Active", active: true, billingType: "Billable" },
+  { id: "prj-010", name: "Employee Self-Service Revamp", clientName: "MethodHub", status: "Planning", active: true, billingType: "Billable" },
+  { id: "prj-011", name: "Regional Onboarding Program", clientName: "Contoso", status: "Planning", active: true, billingType: "Billable" },
   { id: "prj-005", name: "Legacy Migration", clientName: "Contoso", status: "On Hold", active: false, billingType: "Billable" }
 ];
 

@@ -9,9 +9,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const items = navigationItems.filter((item) => user && item.roles.includes(user.role));
 
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center gap-3 border-b border-border px-5">
-        <BrandLogo className="h-11 w-11 shrink-0" />
+    <aside className="flex h-full w-72 flex-col border-r border-[color:var(--border-soft)] [background:var(--sidebar-bg)] text-foreground backdrop-blur-xl">
+      <div className="flex h-16 items-center gap-3 border-b border-[color:var(--border-soft)] px-5">
+        <BrandLogo className="h-10 w-20 shrink-0" />
         <div>
           <p className="text-sm font-semibold">MethodHub HRMS</p>
           <p className="text-xs text-muted-foreground">Enterprise Portal</p>
@@ -27,8 +27,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground [&_svg]:text-[#6C767F]",
-                  isActive && "bg-accent text-accent-foreground"
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-[color:var(--nav-hover-bg)] hover:text-foreground [&_svg]:text-muted-foreground",
+                  isActive && "border border-[color:var(--nav-active-border)] [background:var(--nav-active-bg)] text-foreground shadow-[var(--panel-shadow)] [&_svg]:text-[color:var(--accent-primary)]"
                 )
               }
             >
@@ -38,8 +38,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <div className="border-t border-border p-4">
-        <div className="rounded-xl bg-muted p-3">
+      <div className="border-t border-[color:var(--border-soft)] p-4">
+        <div className="rounded-xl border border-[color:var(--border-soft)] bg-[color:var(--bg-elevated)] p-3 shadow-[var(--field-shadow)]">
           <p className="text-sm font-medium">{user?.name}</p>
           <p className="mt-1 text-xs capitalize text-muted-foreground">{user?.role} workspace</p>
         </div>

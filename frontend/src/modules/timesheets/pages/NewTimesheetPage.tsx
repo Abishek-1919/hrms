@@ -134,6 +134,7 @@ export function NewTimesheetPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const user = useAppSelector((state) => state.auth.user);
+  const { employees } = useAppSelector((state) => state.employees);
   const reviewOnly = searchParams.get("tab") === "review";
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(() => (reviewOnly ? "review" : "daily"));
   const visibleTab = reviewOnly ? "review" : activeTab;
@@ -158,6 +159,9 @@ export function NewTimesheetPage() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   const employeeEntries = useMemo(() => entries.filter((entry) => entry.employeeId === user?.id), [entries, user?.id]);
+  const currentEmployee = employees.find((employee) => employee.employee_id === user?.id);
+  const assignedManager = employees.find((employee) => employee.employee_id === currentEmployee?.manager_id);
+  const assignedManagerPayload = assignedManager ? { id: assignedManager.employee_id, name: `${assignedManager.first_name} ${assignedManager.last_name}` } : undefined;
   const editableReviewEntries = employeeEntries.filter((entry) => entry.status === "draft" || entry.status === "rejected");
   const totalReviewHours = employeeEntries.reduce((sum, entry) => sum + entry.hours, 0);
   const dailyHours = dailyForms.reduce((sum, form) => sum + calculateHours(form.startTime, form.endTime), 0);
@@ -250,7 +254,7 @@ export function NewTimesheetPage() {
     );
     saveTimesheetEntries(generated);
     if (submitAfterGenerate) {
-      submitEntriesForApproval(generated.map((entry) => entry.id));
+      submitEntriesForApproval(generated.map((entry) => entry.id), assignedManagerPayload);
     }
     refreshEntries();
     toast.success(submitAfterGenerate ? "Weekly entries generated and submitted." : "Weekly entries generated.");
@@ -288,7 +292,7 @@ export function NewTimesheetPage() {
     );
     saveTimesheetEntries(generated);
     if (submitAfterGenerate) {
-      submitEntriesForApproval(generated.map((entry) => entry.id));
+      submitEntriesForApproval(generated.map((entry) => entry.id), assignedManagerPayload);
     }
     refreshEntries();
     toast.success(submitAfterGenerate ? "Monthly entries generated and submitted." : "Monthly entries generated.");
@@ -328,9 +332,9 @@ export function NewTimesheetPage() {
       toast.error("No editable entries available to submit.");
       return;
     }
-    submitEntriesForApproval(editableReviewEntries.map((entry) => entry.id));
+    submitEntriesForApproval(editableReviewEntries.map((entry) => entry.id), assignedManagerPayload);
     refreshEntries();
-    toast.success("Timesheet submitted for approval.");
+    toast.success(`Timesheet submitted to ${assignedManagerPayload?.name ?? "the assigned manager"}.`);
     navigate("/timesheets");
   }
 

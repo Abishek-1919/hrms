@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus, SlidersHorizontal, RefreshCw, X, Check, Copy } from "lucide-react";
+import { SlidersHorizontal, RefreshCw, X, Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { Badge } from "@/components/common/Badge";
@@ -23,7 +23,7 @@ import { managerOptions, officeLocations, departmentNames } from "@/services/moc
 export function EmployeeListPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { employees, employeeProjects } = useAppSelector((state) => state.employees);
+  const { employees, employeeProjects, userAccounts } = useAppSelector((state) => state.employees);
 
   // States for advanced filters
   const [showFilters, setShowFilters] = useState(false);
@@ -64,6 +64,10 @@ export function EmployeeListPage() {
   });
 
   const getManagerName = (managerId: string) => {
+    const employeeManager = employees.find((employee) => employee.employee_id === managerId);
+    if (employeeManager) {
+      return `${employeeManager.first_name} ${employeeManager.last_name}`;
+    }
     const mgr = managerOptions.find((m) => m.id === managerId);
     return mgr ? mgr.name : "Unassigned";
   };
@@ -110,9 +114,11 @@ export function EmployeeListPage() {
   };
 
   // Options for filter selects
-  const managerFilterOptions = managerOptions
-    .filter((m) => m.managerType === "MH Manager")
-    .map((m) => ({ value: m.id, label: m.name }));
+  const managerFilterOptions = employees
+    .filter((employee) =>
+      userAccounts.some((account) => account.employee_id === employee.employee_id && account.role === "manager" && account.is_active)
+    )
+    .map((employee) => ({ value: employee.employee_id, label: `${employee.first_name} ${employee.last_name}` }));
 
   const statusTone = (status: EmployeeStatus) => {
     switch (status) {
@@ -202,11 +208,6 @@ export function EmployeeListPage() {
         eyebrow="HR Administration"
         title="Employee Master"
         description="View and manage corporate directory, allocations, status, and reporting hierarchies."
-        action={
-          <Button onClick={() => navigate("/admin/employees/new")}>
-            <Plus className="h-4 w-4 mr-1.5" /> Create Employee
-          </Button>
-        }
       />
 
       {/* Advanced Filter Action Bar */}

@@ -1,11 +1,11 @@
 import { cn } from "@/utils/cn";
 
 const toneStyles = {
-  default: "bg-muted text-muted-foreground",
-  success: "bg-successBg text-success dark:bg-success/20 dark:text-green-200",
-  warning: "bg-warningBg text-amber-800 dark:bg-warning/20 dark:text-amber-200",
-  danger: "bg-dangerBg text-danger dark:bg-danger/20 dark:text-red-200",
-  info: "bg-accent text-accent-foreground"
+  default: "border border-[color:var(--border-soft)] bg-[color:var(--muted)] text-[color:var(--text-secondary)]",
+  success: "border border-transparent bg-[hsl(var(--success)/0.16)] text-[hsl(var(--success))]",
+  warning: "border border-transparent bg-[hsl(var(--warning)/0.16)] text-[hsl(var(--warning))]",
+  danger: "border border-transparent bg-[hsl(var(--danger)/0.16)] text-[hsl(var(--danger))]",
+  info: "border border-transparent bg-[color:rgba(75,141,255,0.18)] text-[color:var(--accent-secondary)]"
 };
 
 export function Badge({

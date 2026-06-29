@@ -19,7 +19,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
           ref={ref}
           id={selectId}
           className={cn(
-            "form-control mt-2 bg-background",
+            "form-control mt-2",
             error && "border-danger focus:border-danger focus:ring-danger/20",
             className
           )}

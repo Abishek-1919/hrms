@@ -39,17 +39,17 @@ export function DataTable<TData>({ columns, data, searchPlaceholder = "Search re
           value={globalFilter}
           onChange={(event) => setGlobalFilter(event.target.value)}
           placeholder={searchPlaceholder}
-          className="h-10 w-full rounded-full border border-[#D5E0F1] bg-gradient-to-b from-white to-[#F9FBFF] pl-9 pr-3 text-xs text-foreground shadow-search transition placeholder:text-muted-foreground focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200/70 dark:from-card dark:to-muted"
+          className="h-10 w-full rounded-full border border-[color:var(--border-soft)] bg-[color:var(--bg-elevated)] pl-9 pr-3 text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)] transition placeholder:text-muted-foreground focus:border-[color:var(--accent-secondary)] focus:outline-none focus:ring-2 focus:ring-[color:rgba(75,141,255,0.22)]"
         />
       </div>
       <div className="overflow-visible rounded-xl border border-border bg-card">
         <div className="overflow-x-auto overflow-y-visible">
           <table className="min-w-full text-sm">
-            <thead className="bg-[#F2F2F2] dark:bg-muted">
+            <thead className="sticky top-0 bg-[color:var(--bg-elevated)]">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} className="px-4 py-3 text-left font-semibold text-[#374151] dark:text-foreground">
+                    <th key={header.id} className="px-4 py-3 text-left font-semibold text-foreground">
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
@@ -59,7 +59,7 @@ export function DataTable<TData>({ columns, data, searchPlaceholder = "Search re
             <tbody className="bg-card">
               {table.getRowModel().rows.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-b border-[#DDD] last:border-0 hover:bg-[#F5F5F5] dark:border-border dark:hover:bg-muted">
+                  <tr key={row.id} className="border-b border-border last:border-0 hover:bg-[color:rgba(255,255,255,0.03)]">
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3 text-foreground">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

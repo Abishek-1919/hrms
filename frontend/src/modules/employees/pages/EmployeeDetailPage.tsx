@@ -61,7 +61,7 @@ export function EmployeeDetailPage() {
     control,
     watch,
     reset,
-    formState: { errors }
+    formState: { errors: formErrors }
   } = useForm<any>({
     resolver: zodResolver(employeeFormSchema),
     mode: "onBlur",
@@ -72,11 +72,18 @@ export function EmployeeDetailPage() {
           last_name: employee.last_name,
           email: employee.email,
           phone: employee.phone,
+          dob: employee.dob || "1990-01-01",
+          gender: employee.gender || "prefer_not_to_say",
+          address: employee.address || "Not provided",
           date_of_joining: employee.date_of_joining,
           employment_type: employee.employment_type,
           designation: employee.designation,
           department: employee.department,
           status: employee.status,
+          location: employee.location || employee.office_location || "Chennai",
+          salary: employee.salary || 1,
+          emergency_contact_name: employee.emergency_contact_name || "Not provided",
+          emergency_contact_phone: employee.emergency_contact_phone || "0000000000",
           manager_id: employee.manager_id,
           client_manager_id: employee.client_manager_id || "",
           work_mode: employee.work_mode,
@@ -103,6 +110,7 @@ export function EmployeeDetailPage() {
   });
 
   const watchWorkMode = watch("work_mode");
+  const errors = formErrors as Record<string, any>;
 
   if (!employee) {
     return (
@@ -120,11 +128,19 @@ export function EmployeeDetailPage() {
   }
 
   const getManagerName = (id: string) => {
+    const employeeManager = employees.find((item) => item.employee_id === id);
+    if (employeeManager) {
+      return `${employeeManager.first_name} ${employeeManager.last_name}`;
+    }
     const m = managerOptions.find((opt) => opt.id === id);
     return m ? m.name : "Unassigned";
   };
 
   const getManagerTitle = (id: string) => {
+    const employeeManager = employees.find((item) => item.employee_id === id);
+    if (employeeManager) {
+      return `${employeeManager.first_name} ${employeeManager.last_name} (${employeeManager.department})`;
+    }
     const m = managerOptions.find((opt) => opt.id === id);
     return m ? `${m.name} (${m.managerType})` : "Unassigned";
   };
@@ -188,9 +204,11 @@ export function EmployeeDetailPage() {
   };
 
   // Select Options lists
-  const mhManagers = managerOptions
-    .filter((m) => m.managerType === "MH Manager")
-    .map((m) => ({ value: m.id, label: `${m.name} (${m.department})` }));
+  const mhManagers = employees
+    .filter((item) =>
+      userAccounts.some((account) => account.employee_id === item.employee_id && account.role === "manager" && account.is_active)
+    )
+    .map((item) => ({ value: item.employee_id, label: `${item.first_name} ${item.last_name} (${item.department})` }));
 
   const clientManagers = managerOptions
     .filter((m) => m.managerType === "Client Manager")
@@ -536,7 +554,7 @@ export function EmployeeDetailPage() {
                 ) : (
                   <div className="overflow-hidden rounded-lg border border-border">
                     <table className="min-w-full divide-y divide-border text-sm">
-                      <thead className="bg-[#F2F2F2] dark:bg-muted font-medium text-muted-foreground">
+                      <thead className="bg-[hsl(var(--bg-elevated))] font-medium text-muted-foreground">
                         <tr>
                           <th className="px-4 py-2 text-left">Project Name</th>
                           <th className="px-4 py-2 text-left">Timeline</th>
@@ -683,6 +701,7 @@ export function EmployeeDetailPage() {
                           options={[
                             { value: "employee", label: "Employee" },
                             { value: "manager", label: "Manager" },
+                            { value: "hr", label: "HR" },
                             { value: "admin", label: "HR Admin" }
                           ]}
                           error={errors.role?.message}

@@ -63,7 +63,7 @@ export function ForcePasswordChangePage() {
     <main className="flex min-h-screen bg-background items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-center gap-3 justify-center">
-          <BrandLogo className="h-12 w-12 shrink-0" />
+          <BrandLogo className="h-10 w-24 shrink-0" />
           <div>
             <p className="text-lg font-semibold">MethodHub HRMS</p>
             <p className="text-sm text-muted-foreground">Security Configuration</p>

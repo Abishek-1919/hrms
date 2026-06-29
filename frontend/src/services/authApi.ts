@@ -1,5 +1,5 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { Role, User } from "@hrms/shared-types";
+import type { User } from "@hrms/shared-types";
 import { demoUsers } from "@/services/mockData";
 
 interface LoginRequest {
@@ -12,6 +12,14 @@ interface LoginResponse {
   accessToken: string;
   refreshToken: string;
 }
+
+const demoPasswords: Record<string, string> = {
+  "employee@methodhub.com": "Employee@methodhub",
+  "manager@methodhub.com": "Manager@methodhub",
+  "hr@methodhub.com": "HR@methodhub",
+  "stakeholder@methodhub.com": "Stakeholder@methodhub",
+  "admin@methodhub.com": "Admin@methodhub"
+};
 
 export const authApi = createApi({
   reducerPath: "authApi",
@@ -56,10 +64,10 @@ export const authApi = createApi({
 
         // 2. Fallback to demoUsers
         if (!user) {
-          const demoUser = demoUsers.find((item) => item.email.toLowerCase() === email.toLowerCase());
+          const normalizedEmail = email.toLowerCase();
+          const demoUser = demoUsers.find((item) => item.email.toLowerCase() === normalizedEmail);
           if (demoUser) {
-            // Check if password is "password" (the default for demo users inLoginPage)
-            if (password === "password" || password === "") {
+            if (demoPasswords[normalizedEmail] === password) {
               user = {
                 ...demoUser,
                 must_change_password: false

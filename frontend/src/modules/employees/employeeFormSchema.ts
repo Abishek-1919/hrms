@@ -7,13 +7,21 @@ export const employeeFormSchema = z
     last_name: z.string().min(1, "Last name is required"),
     email: z.string().email("Enter a valid work email"),
     phone: z.string().min(10, "Phone number must be at least 10 digits"),
+    dob: z.string().min(1, "Date of birth is required"),
+    gender: z.enum(["female", "male", "non_binary", "prefer_not_to_say", "other"]),
+    address: z.string().min(1, "Address is required"),
     date_of_joining: z.string().min(1, "Date of joining is required"),
     employment_type: z.enum(["permanent", "contract", "intern", "consultant"]),
     designation: z.string().min(1, "Designation is required"),
     department: z.string().min(1, "Department is required"),
     status: z.enum(["active", "inactive", "notice_period", "resigned", "terminated"]).default("active"),
+    state: z.string().min(1, "State is required"),
+    city: z.string().min(1, "City is required"),
+    salary: z.coerce.number().min(1, "Salary is required"),
+    emergency_contact_name: z.string().min(1, "Emergency contact name is required"),
+    emergency_contact_phone: z.string().min(10, "Emergency contact phone must be at least 10 digits"),
 
-    manager_id: z.string().min(1, "MH Manager is required"),
+    manager_id: z.string().min(1, "Manager is required"),
     client_manager_id: z.string().optional(),
 
     work_mode: z.enum(["wfh", "office", "client_location", "hybrid"]),
@@ -41,7 +49,7 @@ export const employeeFormSchema = z
       )
       .default([]),
 
-    role: z.enum(["employee", "manager", "admin"]).default("employee")
+    role: z.enum(["employee", "manager", "hr", "admin"]).default("employee")
   })
   .superRefine((data, ctx) => {
     if ((data.work_mode === "office" || data.work_mode === "hybrid") && !data.office_location) {

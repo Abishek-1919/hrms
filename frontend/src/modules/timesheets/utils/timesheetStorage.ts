@@ -110,26 +110,44 @@ export function deleteTimesheetEntry(entryId: string) {
   persistEntries(getTimesheetEntries().filter((entry) => entry.id !== entryId));
 }
 
-export function submitEntriesForApproval(entryIds: string[]) {
+export function submitEntriesForApproval(entryIds: string[], manager?: { id: string; name: string }) {
   const submittedAt = new Date().toISOString();
   persistEntries(
     getTimesheetEntries().map((entry) =>
       entryIds.includes(entry.id) && (entry.status === "draft" || entry.status === "rejected")
-        ? { ...entry, status: "pending", submittedAt }
+        ? { ...entry, status: "pending", submittedAt, managerId: manager?.id, managerName: manager?.name, approvalComment: undefined }
         : entry
     )
   );
 }
 
-export function approveTimesheetEntry(entryId: string, approvalComment?: string) {
+export function approveTimesheetEntry(entryId: string, approvalComment?: string, approvedBy?: string) {
+  const approvedAt = new Date().toISOString();
   persistEntries(
-    getTimesheetEntries().map((entry) => (entry.id === entryId ? { ...entry, status: "approved", approvalComment } : entry))
+    getTimesheetEntries().map((entry) => (entry.id === entryId ? { ...entry, status: "approved", approvalComment, approvedBy, approvedAt } : entry))
   );
 }
 
-export function rejectTimesheetEntry(entryId: string, approvalComment?: string) {
+export function approveTimesheetEntries(entryIds: string[], approvalComment?: string, approvedBy?: string) {
+  const approvedAt = new Date().toISOString();
+  const idSet = new Set(entryIds);
   persistEntries(
-    getTimesheetEntries().map((entry) => (entry.id === entryId ? { ...entry, status: "rejected", approvalComment } : entry))
+    getTimesheetEntries().map((entry) => (idSet.has(entry.id) ? { ...entry, status: "approved", approvalComment, approvedBy, approvedAt } : entry))
+  );
+}
+
+export function rejectTimesheetEntry(entryId: string, approvalComment?: string, rejectedBy?: string) {
+  const rejectedAt = new Date().toISOString();
+  persistEntries(
+    getTimesheetEntries().map((entry) => (entry.id === entryId ? { ...entry, status: "rejected", approvalComment, rejectedBy, rejectedAt } : entry))
+  );
+}
+
+export function rejectTimesheetEntries(entryIds: string[], approvalComment?: string, rejectedBy?: string) {
+  const rejectedAt = new Date().toISOString();
+  const idSet = new Set(entryIds);
+  persistEntries(
+    getTimesheetEntries().map((entry) => (idSet.has(entry.id) ? { ...entry, status: "rejected", approvalComment, rejectedBy, rejectedAt } : entry))
   );
 }
 

@@ -1,12 +1,11 @@
 {
-  "name": "hrms-enterprise",
+  "name": "timesheet-enterprise",
   "private": true,
-  "version": "0.1.0",
-  "description": "Enterprise HRMS monorepo with a Vercel-ready frontend.",
+  "version": "1.0.0",
+  "description": "Timesheet & HRMS — React frontend (Vercel) + Node.js backend (Render) + Supabase.",
   "workspaces": [
     "frontend",
-    "backend",
-    "shared"
+    "backend"
   ],
   "scripts": {
     "dev": "npm --workspace frontend run dev",

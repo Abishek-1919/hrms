@@ -8,7 +8,6 @@ import {
   Edit3,
   Eye,
   FileCheck2,
-  Filter,
   Plus,
   Send,
   Trash2,
@@ -43,31 +42,31 @@ const statusMeta: Record<CalendarStatus, { label: string; dot: string; tile: str
   draft: {
     label: "Completed",
     dot: "bg-emerald-500",
-    tile: "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30",
+    tile: "border-[color:rgba(61,189,143,0.32)] bg-[color:rgba(61,189,143,0.14)] text-foreground",
     badge: "success"
   },
   pending: {
     label: "Pending approval",
     dot: "bg-amber-400",
-    tile: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30",
+    tile: "border-[color:rgba(225,168,75,0.34)] bg-[color:rgba(225,168,75,0.14)] text-foreground",
     badge: "warning"
   },
   approved: {
     label: "Approved",
     dot: "bg-sky-500",
-    tile: "border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-800 dark:bg-sky-950/30",
+    tile: "border-[color:rgba(75,141,255,0.34)] bg-[color:rgba(75,141,255,0.14)] text-foreground",
     badge: "info"
   },
   rejected: {
     label: "Rejected",
     dot: "bg-orange-500",
-    tile: "border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-800 dark:bg-orange-950/30",
+    tile: "border-[color:rgba(225,168,75,0.34)] bg-[color:rgba(225,168,75,0.14)] text-foreground",
     badge: "warning"
   },
   missing: {
     label: "Missing entry",
     dot: "bg-red-500",
-    tile: "border-red-200 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/30",
+    tile: "border-[color:rgba(240,107,107,0.34)] bg-[color:rgba(240,107,107,0.14)] text-foreground",
     badge: "danger"
   },
   weekend: {
@@ -144,6 +143,7 @@ function formatHours(hours: number) {
 export function TimesheetsPage() {
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
+  const { employees } = useAppSelector((state) => state.employees);
   const [entries, setEntries] = useState<TimesheetCalendarEntry[]>(() => getTimesheetEntries());
   const [month, setMonth] = useState(currentMonthValue());
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
@@ -170,6 +170,8 @@ export function TimesheetsPage() {
   const approvedEntries = calendarEntries.filter((entry) => entry.status === "approved");
   const rejectedEntries = calendarEntries.filter((entry) => entry.status === "rejected");
   const editableEntries = calendarEntries.filter((entry) => entry.status === "draft" || entry.status === "rejected");
+  const currentEmployee = employees.find((employee) => employee.employee_id === user?.id);
+  const assignedManager = employees.find((employee) => employee.employee_id === currentEmployee?.manager_id);
 
   const weeklyTrend = useMemo(() => {
     return [1, 2, 3, 4, 5].map((week) => {
@@ -224,17 +226,20 @@ export function TimesheetsPage() {
       toast.error("No editable entries are ready for approval.");
       return;
     }
-    submitEntriesForApproval(editableEntries.map((entry) => entry.id));
+    submitEntriesForApproval(
+      editableEntries.map((entry) => entry.id),
+      assignedManager ? { id: assignedManager.employee_id, name: `${assignedManager.first_name} ${assignedManager.last_name}` } : undefined
+    );
     refreshEntries();
-    toast.success("Editable entries submitted for manager approval.");
+    toast.success(`Editable entries submitted to ${assignedManager ? `${assignedManager.first_name} ${assignedManager.last_name}` : "the assigned manager"}.`);
   }
 
   function handleManagerAction(entryId: string, action: "approve" | "reject") {
     if (action === "approve") {
-      approveTimesheetEntry(entryId, "Approved from manager dashboard.");
+      approveTimesheetEntry(entryId, "Approved from manager dashboard.", user?.name);
       toast.success("Entry approved.");
     } else {
-      rejectTimesheetEntry(entryId, "Please update the task details and resubmit.");
+      rejectTimesheetEntry(entryId, "Please update the task details and resubmit.", user?.name);
       toast.success("Entry rejected and reopened for employee editing.");
     }
     refreshEntries();
@@ -532,19 +537,6 @@ export function TimesheetsPage() {
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader title="Timesheet APIs" description="Frontend integration contract retained for backend handoff." action={<Filter className="h-4 w-4 text-muted-foreground" />} />
-        <CardContent className="grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
-          <span>GET /timesheets/calendar</span>
-          <span>GET /timesheets/day/{selectedDate}</span>
-          <span>POST /timesheets/daily</span>
-          <span>POST /timesheets/weekly</span>
-          <span>POST /timesheets/monthly</span>
-          <span>POST /timesheets/submit-approval</span>
-          <span>POST /timesheets/approve</span>
-          <span>POST /timesheets/reject</span>
-        </CardContent>
-      </Card>
     </div>
   );
 }

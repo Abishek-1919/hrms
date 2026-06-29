@@ -36,7 +36,13 @@ export interface TimesheetDraft {
 export interface TimesheetCalendarEntry extends TimesheetFormEntry {
   employeeId: string;
   employeeName: string;
+  managerId?: string;
+  managerName?: string;
   notes?: string;
   submittedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
   approvalComment?: string;
 }

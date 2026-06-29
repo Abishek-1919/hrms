@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
@@ -23,11 +23,10 @@ import { TextField } from "@/components/forms/TextField";
 import { SelectField } from "@/components/forms/SelectField";
 import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { MultiProjectAssignment } from "@/components/forms/MultiProjectAssignment";
-import { useAppDispatch } from "@/app/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/app/store/hooks";
 import { addEmployee } from "../employeeSlice";
 import { employeeFormSchema, type EmployeeFormValues } from "../employeeFormSchema";
 import {
-  managerOptions,
   officeLocations,
   timezoneOptions,
   designations,
@@ -45,8 +44,13 @@ const STEPS = [
 
 export function CreateEmployeePage() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { employees, userAccounts } = useAppSelector((state) => state.employees);
+  const currentUser = useAppSelector((state) => state.auth.user);
 
   const {
     register,
@@ -54,7 +58,7 @@ export function CreateEmployeePage() {
     control,
     trigger,
     watch,
-    formState: { errors }
+    formState: { errors: formErrors }
   } = useForm<any>({
     resolver: zodResolver(employeeFormSchema),
     mode: "onBlur",
@@ -64,10 +68,19 @@ export function CreateEmployeePage() {
       last_name: "",
       email: "",
       phone: "",
+      dob: "",
+      gender: "prefer_not_to_say",
+      address: "",
       date_of_joining: new Date().toISOString().split("T")[0],
       employment_type: "permanent",
       designation: "",
       department: "Engineering",
+      state: "",
+      city: "",
+      salary: "",
+      status: "active",
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
       manager_id: "",
       client_manager_id: "",
       work_mode: "office",
@@ -87,15 +100,24 @@ export function CreateEmployeePage() {
   const watchWorkMode = watch("work_mode");
   const watchFirstName = watch("first_name");
   const watchLastName = watch("last_name");
+  const errors = formErrors as Record<string, any>;
 
-  // Filter manager options
-  const mhManagers = managerOptions
-    .filter((m) => m.managerType === "MH Manager")
-    .map((m) => ({ value: m.id, label: `${m.name} (${m.department})` }));
+  const managerAccounts = useMemo(
+    () => userAccounts.filter((account) => account.role === "manager" && account.is_active),
+    [userAccounts]
+  );
+  const mhManagers = useMemo(
+    () =>
+      employees
+        .filter((employee) => managerAccounts.some((account) => account.employee_id === employee.employee_id))
+        .map((employee) => ({
+          value: employee.employee_id,
+          label: `${employee.first_name} ${employee.last_name} (${employee.department})`
+        })),
+    [employees, managerAccounts]
+  );
 
-  const clientManagers = managerOptions
-    .filter((m) => m.managerType === "Client Manager")
-    .map((m) => ({ value: m.id, label: m.name }));
+  const clientManagers = mhManagers;
 
   const designationOpts = designations.map((d) => ({ value: d, label: d }));
   const departmentOpts = departmentNames.map((d) => ({ value: d, label: d }));
@@ -108,10 +130,18 @@ export function CreateEmployeePage() {
       "last_name",
       "email",
       "phone",
+      "dob",
+      "gender",
+      "address",
       "date_of_joining",
       "employment_type",
       "designation",
-      "department"
+      "department",
+      "state",
+      "city",
+      "salary",
+      "emergency_contact_name",
+      "emergency_contact_phone"
     ],
     2: ["manager_id", "client_manager_id"],
     3: ["work_mode", "office_location", "client_name", "client_location"],
@@ -136,9 +166,24 @@ export function CreateEmployeePage() {
   };
 
   const onSubmit = (data: EmployeeFormValues) => {
+    setSubmitError("");
+    setSubmitSuccess("");
+    setIsSaving(true);
     try {
+      if (currentUser?.role !== "hr") {
+        throw new Error("Only HR users can create employees.");
+      }
+      if (!mhManagers.some((manager) => manager.value === data.manager_id)) {
+        throw new Error("Selected manager no longer exists.");
+      }
+      if (employees.some((employee) => employee.employee_code.toLowerCase() === data.employee_code.toLowerCase())) {
+        throw new Error("Employee code already exists.");
+      }
+      if (employees.some((employee) => employee.email.toLowerCase() === data.email.toLowerCase())) {
+        throw new Error("Work email already exists.");
+      }
       const { projects, role, ...employee } = data;
-      dispatch(addEmployee({ employee: employee as any, projects, role }));
+      dispatch(addEmployee({ employee: { ...employee, role } as any, projects: projects as any, role }));
 
       const tempUser = `${data.first_name.toLowerCase().replace(/[^a-z0-9]/g, "")}.${data.last_name.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
       toast.success(
@@ -150,9 +195,14 @@ export function CreateEmployeePage() {
         { duration: 8000 }
       );
 
-      navigate("/admin/employees");
-    } catch {
-      toast.error("Failed to create employee.");
+      setSubmitSuccess("Employee created successfully.");
+      navigate("/hr");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create employee.";
+      setSubmitError(message);
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -166,8 +216,14 @@ export function CreateEmployeePage() {
       <PageHeader
         eyebrow="HR Administration"
         title="Create Employee"
-        description="Register a new employee. HR is authorized to configure reporting hierarchy, work location, timezone, shift and credentials."
+        description="Register a new employee. Only HR can configure the employee record, reporting manager, compensation, and credentials."
       />
+
+      {(submitError || submitSuccess) && (
+        <div className={cn("rounded-lg border p-3 text-sm", submitError ? "border-danger/30 bg-danger/10 text-danger" : "border-success/30 bg-success/10 text-success")}>
+          {submitError || submitSuccess}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Step List Left column */}
@@ -270,6 +326,30 @@ export function CreateEmployeePage() {
                     error={errors.phone?.message}
                     {...register("phone")}
                   />
+                  <TextField
+                    label="Date of Birth"
+                    type="date"
+                    error={errors.dob?.message}
+                    {...register("dob")}
+                  />
+                  <SelectField
+                    label="Gender"
+                    error={errors.gender?.message}
+                    options={[
+                      { value: "female", label: "Female" },
+                      { value: "male", label: "Male" },
+                      { value: "non_binary", label: "Non-binary" },
+                      { value: "prefer_not_to_say", label: "Prefer not to say" },
+                      { value: "other", label: "Other" }
+                    ]}
+                    {...register("gender")}
+                  />
+                  <TextField
+                    label="Address"
+                    placeholder="Current residential address"
+                    error={errors.address?.message}
+                    {...register("address")}
+                  />
 
                   <TextField
                     label="Date of Joining"
@@ -301,6 +381,24 @@ export function CreateEmployeePage() {
                     error={errors.department?.message}
                     options={departmentOpts}
                     {...register("department")}
+                  />
+                  <TextField label="State" placeholder="e.g. Karnataka" error={errors.state?.message} {...register("state")} />
+                  <TextField label="City" placeholder="e.g. Bangalore" error={errors.city?.message} {...register("city")} />
+                  <TextField
+                    label="Salary"
+                    type="number"
+                    error={errors.salary?.message}
+                    {...register("salary")}
+                  />
+                  <TextField
+                    label="Emergency Contact Name"
+                    error={errors.emergency_contact_name?.message}
+                    {...register("emergency_contact_name")}
+                  />
+                  <TextField
+                    label="Emergency Contact Phone"
+                    error={errors.emergency_contact_phone?.message}
+                    {...register("emergency_contact_phone")}
                   />
                 </CardContent>
               </Card>
@@ -498,6 +596,7 @@ export function CreateEmployeePage() {
                     options={[
                       { value: "employee", label: "Employee" },
                       { value: "manager", label: "Manager" },
+                      { value: "hr", label: "HR" },
                       { value: "admin", label: "HR Admin" }
                     ]}
                     {...register("role")}
@@ -522,8 +621,8 @@ export function CreateEmployeePage() {
                   Next <ArrowRight className="h-4 w-4 ml-1.5" />
                 </Button>
               ) : (
-                <Button type="submit">
-                  <Save className="h-4 w-4 mr-1.5" /> Save Employee
+                <Button type="submit" disabled={isSaving}>
+                  <Save className="h-4 w-4 mr-1.5" /> {isSaving ? "Saving..." : "Save Employee"}
                 </Button>
               )}
             </div>

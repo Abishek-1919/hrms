@@ -8,7 +8,7 @@ export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-transparent">
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">
         <Sidebar />
       </div>

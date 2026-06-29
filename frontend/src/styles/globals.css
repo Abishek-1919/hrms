@@ -3,25 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --font-sans: "Poppins", Inter, Roboto, Arial, sans-serif;
+  --font-sans: "Poppins", "Segoe UI", sans-serif;
 
-  --bg: #F0F4FF;
-  --text: #2C3135;
-  --subtext: #2C3135;
-  --primary-brand: #035297;
-  --sidebar-bg: #FFFFFF;
-  --header-bg: #F0F4FF;
-  --divider: #E5E7EB;
-  --sidebar-icon: #6C767F;
-  --blue-border: #E0E8FD;
-  --bgiconactive: #E0E8FD;
-  --button-primary: #3F90F6;
-  --button-hover: #035297;
-  --dropdown-bg: #FFFFFF;
-  --dropdown-border: #BFC8D1;
-  --dropdown-border-focus: #93C5FD;
-  --dropdown-text: #2C3135;
-  --dropdown-text-disabled: #94A3B8;
+  --bg-main: #f6f8fb;
+  --bg-surface: #fbfcff;
+  --bg-card: #ffffff;
+  --bg-elevated: #f1f4f9;
+  --border-soft: rgba(61, 50, 33, 0.12);
+  --text-primary: #1c2430;
+  --text-secondary: #485263;
+  --text-muted: #6d7788;
+  --accent-primary: #b9893f;
+  --accent-secondary: #2f6fdb;
+  --button-text: #161a21;
+  --sidebar-bg: linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(242, 246, 252, 0.96) 100%);
+  --topbar-bg: linear-gradient(180deg, rgba(255, 253, 248, 0.9) 0%, rgba(247, 250, 255, 0.82) 100%);
+  --nav-hover-bg: rgba(185, 137, 63, 0.08);
+  --nav-active-bg: linear-gradient(180deg, rgba(185, 137, 63, 0.16) 0%, rgba(47, 111, 219, 0.1) 100%);
+  --nav-active-border: rgba(185, 137, 63, 0.28);
+  --panel-shadow: 0 18px 42px rgba(31, 38, 49, 0.1);
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 8px 18px rgba(31, 38, 49, 0.05);
 
   --background: 222 100% 97%;
   --foreground: 207 9% 19%;
@@ -29,16 +30,16 @@
   --card-foreground: 207 9% 19%;
   --muted: 210 40% 96%;
   --muted-foreground: 215 16% 47%;
-  --accent: 222 85% 94%;
-  --accent-foreground: 208 96% 30%;
-  --primary: 208 96% 30%;
-  --primary-foreground: 0 0% 100%;
-  --button: 213 91% 61%;
-  --button-hover-hsl: 208 96% 30%;
-  --panel: 214 32% 91%;
-  --border: 220 13% 91%;
+  --accent: 39 58% 92%;
+  --accent-foreground: 35 48% 28%;
+  --primary: 36 46% 49%;
+  --primary-foreground: 222 30% 10%;
+  --button: 36 53% 58%;
+  --button-hover-hsl: 36 58% 64%;
+  --panel: 38 24% 87%;
+  --border: 38 20% 86%;
   --input: 214 32% 91%;
-  --ring: 217 91% 60%;
+  --ring: 216 88% 62%;
   --success: 160 84% 30%;
   --success-bg: 138 76% 97%;
   --warning: 38 92% 50%;
@@ -51,35 +52,47 @@
 
 [data-theme="dark"],
 .dark {
-  --bg: rgba(15,23,42,0.92);
-  --text: #E2E8F0;
-  --sidebar-bg: rgba(30,41,59,0.95);
-  --header-bg: rgba(15,23,42,0.92);
-  --divider: rgba(255,255,255,0.08);
-  --sidebar-icon: #FFFFFF;
-  --blue-border: rgba(255,255,255,0.1);
-  --bgiconactive: rgba(59,130,246,0.4);
-  --primary-brand: #60A5FA;
-  --dropdown-bg: #1E293B;
-  --dropdown-border: #334155;
-  --dropdown-text: #E2E8F0;
+  --bg-main: #0a0b0d;
+  --bg-surface: #111318;
+  --bg-card: #171a20;
+  --bg-elevated: #1e232c;
+  --border-soft: rgba(232, 217, 186, 0.12);
+  --text-primary: #f5f1e8;
+  --text-secondary: #d8ddea;
+  --text-muted: #98a1b3;
+  --accent-primary: #d8aa63;
+  --accent-secondary: #4b8dff;
+  --button-text: #15100a;
+  --sidebar-bg: linear-gradient(180deg, rgba(11, 13, 17, 0.98) 0%, rgba(20, 23, 30, 0.96) 100%);
+  --topbar-bg: linear-gradient(180deg, rgba(9, 10, 12, 0.96) 0%, rgba(17, 19, 24, 0.9) 100%);
+  --nav-hover-bg: rgba(255, 255, 255, 0.04);
+  --nav-active-bg: linear-gradient(180deg, rgba(216, 170, 99, 0.22) 0%, rgba(75, 141, 255, 0.18) 100%);
+  --nav-active-border: rgba(216, 170, 99, 0.18);
+  --panel-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 
-  --background: 222 47% 11%;
-  --foreground: 214 32% 91%;
-  --card: 217 33% 17%;
-  --card-foreground: 214 32% 91%;
-  --muted: 217 33% 22%;
-  --muted-foreground: 215 20% 72%;
-  --accent: 217 91% 28%;
-  --accent-foreground: 214 32% 91%;
-  --primary: 213 93% 68%;
-  --primary-foreground: 0 0% 100%;
-  --button: 213 91% 61%;
-  --button-hover-hsl: 213 93% 68%;
-  --panel: 215 28% 25%;
-  --border: 215 28% 25%;
-  --input: 215 25% 27%;
-  --ring: 213 93% 68%;
+  --background: 220 23% 7%;
+  --foreground: 39 34% 94%;
+  --card: 222 19% 13%;
+  --card-foreground: 39 34% 94%;
+  --muted: 222 20% 17%;
+  --muted-foreground: 220 17% 68%;
+  --accent: 221 21% 19%;
+  --accent-foreground: 39 34% 94%;
+  --primary: 37 59% 61%;
+  --primary-foreground: 222 30% 8%;
+  --button: 37 59% 61%;
+  --button-hover-hsl: 37 62% 68%;
+  --panel: 221 18% 17%;
+  --border: 38 19% 24%;
+  --input: 221 20% 15%;
+  --ring: 213 96% 68%;
+  --success: 160 52% 49%;
+  --success-bg: 160 52% 16%;
+  --warning: 38 70% 59%;
+  --warning-bg: 36 61% 17%;
+  --danger: 0 82% 68%;
+  --danger-bg: 0 56% 18%;
 }
 
 * {
@@ -94,9 +107,19 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-primary) 12%, transparent) 0, transparent 28%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent-secondary) 10%, transparent) 0, transparent 24%),
+    linear-gradient(180deg, var(--bg-main) 0%, color-mix(in srgb, var(--bg-main) 76%, #e4eaf3) 100%);
+  color: var(--text-primary);
   font-family: var(--font-sans);
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(216, 170, 99, 0.12) 0, transparent 28%),
+    radial-gradient(circle at top right, rgba(75, 141, 255, 0.1) 0, transparent 24%),
+    linear-gradient(180deg, #090a0c 0%, #101219 58%, #0c0e12 100%);
 }
 
 button,
@@ -111,20 +134,44 @@ textarea {
   outline-offset: 2px;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--accent-primary) 36%, transparent);
+  color: var(--text-primary);
+}
+
 @layer components {
   .page-shell {
     @apply mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8;
   }
 
   .panel {
-    @apply rounded-xl border border-panel bg-card text-card-foreground shadow-soft;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 92%, white) 0%, var(--bg-card) 100%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--panel-shadow);
+    @apply rounded-xl backdrop-blur-sm;
   }
 
   .stat-card {
-    @apply rounded-xl border border-panel bg-card p-5 shadow-soft;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, white) 0%, var(--bg-card) 100%);
+    border: 1px solid var(--border-soft);
+    color: var(--text-primary);
+    box-shadow: var(--panel-shadow);
+    @apply rounded-xl p-5;
   }
 
   .form-control {
-    @apply min-h-10 w-full rounded-lg border border-input bg-muted px-3 text-xs text-slate-700 shadow-sm transition placeholder:text-slate-400 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200/70 dark:text-foreground dark:placeholder:text-muted-foreground;
+    background: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
+    color: var(--text-primary);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--field-shadow);
+    @apply min-h-10 w-full rounded-xl px-3 text-sm transition placeholder:text-muted-foreground focus:outline-none;
+  }
+
+  .form-control:focus {
+    border-color: color-mix(in srgb, var(--accent-secondary) 72%, white 12%);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--accent-secondary) 20%, transparent),
+      0 8px 24px rgba(0, 0, 0, 0.18);
   }
 }

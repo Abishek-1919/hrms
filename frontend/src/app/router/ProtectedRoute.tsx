@@ -9,13 +9,14 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const location = useLocation();
   const { user, accessToken } = useAppSelector((state) => state.auth);
+  const fallbackPath = user?.role === "hr" ? "/hr" : user?.role === "stakeholder" ? "/stakeholder" : "/dashboard";
 
   if (!accessToken || !user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={fallbackPath} replace />;
   }
 
   if (user.must_change_password && location.pathname !== "/change-password") {
