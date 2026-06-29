@@ -1,0 +1,4 @@
+[mcp_servers.render]
+command = "npx"
+args = ["-y", "@render/mcp-server"]
+env = { RENDER_API_KEY = "rnd_R1manHwQhZI5hPTTnV9jaCVf0ODc" }
